@@ -1,17 +1,18 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
-import React from 'react';
+import React, { useCallback, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button } from '@/components/ui';
-import { ExerciseLibrary } from './ExerciseLibrary';
-import { addExerciseToRoutine, loadRoutine } from '@/db/repositories/routines';
-import type { RootStackParamList } from '@/navigation/types';
 import { useActiveWorkout } from '@/stores/RootStore';
 import { usePalette } from '@/theme/ThemeProvider';
+import { fontSize, spacing } from '@/theme/tokens';
+import { addExerciseToRoutine, loadRoutine } from '@/db/repositories/routines';
+import type { RootStackParamList } from '@/navigation/types';
+import { ExerciseLibrary } from './ExerciseLibrary';
 
 /**
- * Add-exercise picker. Stays open after a selection so several exercises can be
- * added in one pass, which is how routines actually get built.
+ * Hevy-style add-exercise picker: Cancel | Add Exercise | Create header, rows
+ * toggle a multi-select, and the bottom bar commits everything at once.
  */
 export const ExercisePickerScreen = observer(function ExercisePickerScreen() {
   const palette = usePalette();
@@ -19,31 +20,70 @@ export const ExercisePickerScreen = observer(function ExercisePickerScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'ExercisePicker'>>();
   const active = useActiveWorkout();
   const { mode, targetId } = route.params;
+  const [selected, setSelected] = useState<string[]>([]);
 
-  async function handleSelect(exerciseId: string) {
+  const toggle = useCallback((id: string) => {
+    setSelected((s) => (s.includes(id) ? s.filter((v) => v !== id) : [...s, id]));
+  }, []);
+
+  async function commit(ids: string[]) {
     if (mode === 'workout') {
-      await active.addExercise(exerciseId);
-      return;
+      for (const id of ids) await active.addExercise(id);
+    } else {
+      const routine = await loadRoutine(targetId);
+      const base = routine?.exercises.length ?? 0;
+      let i = 0;
+      for (const id of ids) {
+        await addExerciseToRoutine(targetId, id, base + i);
+        i++;
+      }
     }
-    const routine = await loadRoutine(targetId);
-    await addExerciseToRoutine(targetId, exerciseId, routine?.exercises.length ?? 0);
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: palette.bg }} edges={['bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: palette.bg }} edges={['top', 'bottom']}>
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel"
+        >
+          <Text style={[styles.headerLink, { color: palette.accent }]}>Cancel</Text>
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: palette.text }]}>Add Exercise</Text>
+        <Pressable
+          onPress={() => navigation.navigate('CustomExercise')}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Create"
+        >
+          <Text style={[styles.headerLink, { color: palette.accent }]}>Create</Text>
+        </Pressable>
+      </View>
+
       <ExerciseLibrary
-        onSelect={(e) => {
-          void handleSelect(e.id).then(() => navigation.goBack());
+        selectable
+        onPress={(e) => toggle(e.id)}
+        selectedIds={selected}
+        onAddSelection={(ids) => {
+          void commit(ids).then(() => navigation.goBack());
         }}
-        header={
-          <Button
-            label="+ Create a custom exercise"
-            variant="secondary"
-            onPress={() => navigation.navigate('CustomExercise')}
-            style={{ marginBottom: 8, minHeight: 40 }}
-          />
-        }
+        onCreateCustom={() => navigation.navigate('CustomExercise')}
+        autoFocus
       />
     </SafeAreaView>
   );
+});
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  headerTitle: { fontSize: fontSize.lg, fontWeight: '700' },
+  headerLink: { fontSize: fontSize.md, fontWeight: '600' },
 });

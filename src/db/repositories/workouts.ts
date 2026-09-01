@@ -207,6 +207,41 @@ export async function listWorkoutDates(): Promise<number[]> {
   return rows.map((r) => r.startedAt);
 }
 
+/**
+ * The exercise ids most recently logged in completed workouts, most recent
+ * first and each id appearing once. Drives the "Recent Exercises" section the
+ * way Hevy surfaces recently-used exercises above the full catalogue.
+ * `limit` is a row cap on the scan, not on the distinct ids returned.
+ */
+export async function listRecentExerciseIds(limit = 20): Promise<string[]> {
+  const rows = await db
+    .select({ exerciseId: workoutExercises.exerciseId })
+    .from(workoutExercises)
+    .innerJoin(workouts, eq(workoutExercises.workoutId, workouts.id))
+    .innerJoin(exercises, eq(workoutExercises.exerciseId, exercises.id))
+    .where(
+      and(
+        eq(workouts.status, 'completed'),
+        eq(workouts.deleted, false),
+        eq(workoutExercises.deleted, false),
+        eq(exercises.deleted, false),
+        eq(exercises.archived, false),
+      ),
+    )
+    .orderBy(desc(workouts.startedAt))
+    .limit(limit);
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const r of rows) {
+    if (!seen.has(r.exerciseId)) {
+      seen.add(r.exerciseId);
+      out.push(r.exerciseId);
+    }
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Writes
 // ---------------------------------------------------------------------------

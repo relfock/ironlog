@@ -14,7 +14,7 @@ export const ExercisesScreen = observer(function ExercisesScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: palette.bg }} edges={['top']}>
       <ExerciseLibrary
-        onSelect={(e) => navigation.navigate('ExerciseDetail', { exerciseId: e.id })}
+        onPress={(e) => navigation.navigate('ExerciseDetail', { exerciseId: e.id })}
         header={
           <Row style={{ justifyContent: 'space-between', marginBottom: spacing.sm }}>
             <H1>Exercises</H1>

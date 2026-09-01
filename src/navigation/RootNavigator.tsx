@@ -109,7 +109,7 @@ export function RootNavigator() {
       <Stack.Screen
         name="ExercisePicker"
         component={ExercisePickerScreen}
-        options={{ presentation: 'modal', title: 'Add Exercise' }}
+        options={{ presentation: 'modal', headerShown: false }}
       />
       <Stack.Screen
         name="RoutineEditor"

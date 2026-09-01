@@ -1,8 +1,8 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import { useMemo } from 'react';
 import { db } from '@/db/client';
-import { exercises } from '@/db/schema';
+import { exercises, workoutExercises, workouts } from '@/db/schema';
 import { toExercise, type Exercise } from '@/db/repositories/exercises';
 
 /**
@@ -44,4 +44,42 @@ export function useExercise(id: string | undefined): Exercise | null {
     () => (id === undefined ? null : (all.find((e) => e.id === id) ?? null)),
     [all, id],
   );
+}
+
+/**
+ * Exercise ids most recently logged in completed workouts, most recent first
+ * and deduplicated — the source of the "Recent Exercises" section header.
+ * Reacts to new workouts the same way `useExercises` does.
+ */
+export function useRecentExerciseIds(limit = 20): string[] {
+  const { data } = useLiveQuery(
+    db
+      .select({ exerciseId: workoutExercises.exerciseId })
+      .from(workoutExercises)
+      .innerJoin(workouts, eq(workoutExercises.workoutId, workouts.id))
+      .innerJoin(exercises, eq(workoutExercises.exerciseId, exercises.id))
+      .where(
+        and(
+          eq(workouts.status, 'completed'),
+          eq(workouts.deleted, false),
+          eq(workoutExercises.deleted, false),
+          eq(exercises.deleted, false),
+          eq(exercises.archived, false),
+        ),
+      )
+      .orderBy(desc(workouts.startedAt))
+      .limit(limit),
+  );
+
+  return useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const r of data ?? []) {
+      if (!seen.has(r.exerciseId)) {
+        seen.add(r.exerciseId);
+        out.push(r.exerciseId);
+      }
+    }
+    return out;
+  }, [data]);
 }
