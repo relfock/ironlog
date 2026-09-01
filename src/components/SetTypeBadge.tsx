@@ -1,0 +1,64 @@
+import React from 'react';
+import { Pressable, StyleSheet, Text } from 'react-native';
+import type { SetType } from '@/domain/types';
+import { usePalette } from '@/theme/ThemeProvider';
+import { fontSize, radius } from '@/theme/tokens';
+
+/** Hevy's convention: warm-ups/drops/failures get a letter, normal sets a number. */
+export function setTypeLabel(setType: SetType, workingIndex: number): string {
+  switch (setType) {
+    case 'warmup':
+      return 'W';
+    case 'drop':
+      return 'D';
+    case 'failure':
+      return 'F';
+    case 'normal':
+      return String(workingIndex);
+  }
+}
+
+export function SetTypeBadge({
+  setType,
+  workingIndex,
+  onPress,
+}: {
+  setType: SetType;
+  workingIndex: number;
+  onPress?: () => void;
+}) {
+  const palette = usePalette();
+  const color =
+    setType === 'warmup'
+      ? palette.setTypeWarmup
+      : setType === 'drop'
+        ? palette.setTypeDrop
+        : setType === 'failure'
+          ? palette.setTypeFailure
+          : palette.textMuted;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Set type: ${setType}. Tap to change.`}
+      style={styles.badge}
+      hitSlop={8}
+    >
+      <Text style={{ color, fontSize: fontSize.md, fontWeight: '700' }}>
+        {setTypeLabel(setType, workingIndex)}
+      </Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  badge: {
+    width: 30,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.sm,
+  },
+});
