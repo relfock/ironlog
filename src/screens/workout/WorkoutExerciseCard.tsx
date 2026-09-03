@@ -2,12 +2,12 @@ import { useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import React, { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { ExerciseArt } from '@/components/ExerciseArt';
+import { MuscleMap } from '@/components/MuscleMap';
 import { PromptModal } from '@/components/PromptModal';
 import { SetRow } from '@/components/SetRow';
 import { Body, Caption, Pill, Row } from '@/components/ui';
+import { exerciseBySlug } from '@/data/exercises';
 import type { WorkoutExerciseData } from '@/db/repositories/workouts';
-import { buildHighlight } from '@/domain/muscleMap';
 import { REST_PRESETS_SEC } from '@/domain/restTimer';
 import type { Muscle } from '@/domain/types';
 import { formatDuration } from '@/domain/units';
@@ -33,14 +33,7 @@ export const WorkoutExerciseCard = observer(function WorkoutExerciseCard({
   const navigation = useNavigation();
   const [editingNotes, setEditingNotes] = useState(false);
 
-  const parts = useMemo(
-    () =>
-      buildHighlight(
-        we.primaryMuscles as Muscle[],
-        we.secondaryMuscles as Muscle[],
-      ),
-    [we.primaryMuscles, we.secondaryMuscles],
-  );
+  const regions = useMemo(() => exerciseBySlug(we.artKey)?.regions ?? null, [we.artKey]);
 
   // Badge numbers count only normal sets, so a warm-up does not consume "1".
   let workingCount = 0;
@@ -136,7 +129,12 @@ export const WorkoutExerciseCard = observer(function WorkoutExerciseCard({
       ]}
     >
       <Row style={{ alignItems: 'flex-start' }}>
-        <ExerciseArt artKey={we.artKey} parts={parts} size={64} animate={false} />
+        <MuscleMap
+          regions={regions}
+          primary={we.primaryMuscles as Muscle[]}
+          secondary={we.secondaryMuscles as Muscle[]}
+          size={64}
+        />
 
         <Pressable style={{ flex: 1 }} onPress={showMenu} accessibilityLabel={`${we.exerciseName} options`}>
           <Text style={{ color: palette.accent, fontSize: fontSize.lg, fontWeight: '700' }}>

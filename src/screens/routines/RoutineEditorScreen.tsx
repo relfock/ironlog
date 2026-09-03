@@ -2,10 +2,11 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import { observer } from 'mobx-react-lite';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
-import { ExerciseArt } from '@/components/ExerciseArt';
+import { MuscleMap } from '@/components/MuscleMap';
 import { PromptModal } from '@/components/PromptModal';
 import { Body, Button, Caption, Card, H1, H2, Pill, Row } from '@/components/ui';
 import { RoutineSetRow } from './RoutineSetRow';
+import { exerciseBySlug } from '@/data/exercises';
 import {
   addRoutineSet,
   removeRoutineExercise,
@@ -14,7 +15,6 @@ import {
   updateRoutineMeta,
   type RoutineExerciseData,
 } from '@/db/repositories/routines';
-import { buildHighlight } from '@/domain/muscleMap';
 import type { Muscle } from '@/domain/types';
 import { REST_PRESETS_SEC } from '@/domain/restTimer';
 import { formatDuration } from '@/domain/units';
@@ -144,10 +144,7 @@ const RoutineExerciseCard = observer(function RoutineExerciseCard({
   const palette = usePalette();
   const navigation = useNavigation();
 
-  const parts = useMemo(
-    () => buildHighlight(re.primaryMuscles as Muscle[], re.secondaryMuscles as Muscle[]),
-    [re.primaryMuscles, re.secondaryMuscles],
-  );
+  const regions = useMemo(() => exerciseBySlug(re.artKey)?.regions ?? null, [re.artKey]);
 
   let working = 0;
   const rows = re.sets.map((s) => {
@@ -237,7 +234,12 @@ const RoutineExerciseCard = observer(function RoutineExerciseCard({
   return (
     <Card style={{ marginTop: spacing.md }}>
       <Row style={{ alignItems: 'flex-start' }}>
-        <ExerciseArt artKey={re.artKey} parts={parts} size={54} animate={false} />
+        <MuscleMap
+          regions={regions}
+          primary={re.primaryMuscles as Muscle[]}
+          secondary={re.secondaryMuscles as Muscle[]}
+          size={54}
+        />
         <Pressable style={{ flex: 1 }} onPress={showMenu} accessibilityLabel={`${re.exerciseName} options`}>
           <Text style={{ color: palette.accent, fontSize: fontSize.md, fontWeight: '700' }}>
             {re.exerciseName}

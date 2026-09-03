@@ -2,6 +2,21 @@
 
 Research-only task. No code changes.
 
+> **HISTORICAL — none of the sources below ships in the app any more.**
+>
+> This document is the record of the search that produced the Wikimedia Commons
+> / Everkinetic illustration set. That set has been removed: the app now draws a
+> single "muscles worked" figure plus a demonstration video per exercise, both
+> derived from `fitbod.me` pages, whose licence is **not established**. See
+> `docs/ART_LICENSING.md` for what actually ships and what is still open.
+>
+> Kept because the negatives are still worth having — the disqualifications
+> below (free-exercise-db's bodybuilding.com prose, the GymVisual-derived GIF
+> lineage, wger's laundered image licences, the Kaggle/HuggingFace sets) apply
+> to any replacement, and the CC BY-SA mechanics apply if CC material ever comes
+> back into the bundle. Read the licence sections as *what would be required*,
+> not as *what we are doing*.
+
 ## Verified findings so far
 
 ### DISQUALIFIED: free-exercise-db / wrkout exercises.json

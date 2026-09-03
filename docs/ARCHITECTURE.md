@@ -17,7 +17,12 @@ inventory is stored in the unit stamped on the plates and the calculator solves
 in that unit.
 
 **Everything is soft-deleted.** `deleted = 1`, never `DELETE`. Built-in
-exercises are archived rather than removed, because logged sets reference them.
+exercises are archived rather than removed, because logged sets reference them
+— `onDelete: 'restrict'`, so a hard delete would fail rather than orphan. This
+is also how a catalogue *replacement* is handled: `seedExercises()` archives
+every non-custom row whose slug the new catalogue does not contain, so the old
+library disappears from the picker while the history pointing at it still
+reads.
 
 ## Sync-readiness without a server
 
@@ -120,12 +125,34 @@ honest and a large subtraction expires the timer rather than going negative.
 
 ## Exercise art
 
-See [ART_LICENSING.md](ART_LICENSING.md) — the rules there are licence
-obligations, not preferences. The short version: the artwork ships
-byte-identical, colour is applied at render time, and no build step may touch
-`assets/art/`.
+One drawing, not 1069. Every `target_muscles.svg` in `exercises_db/` turned out
+to be the *same* front+back figure with different `fill` attributes, so
+`scripts/build-exercise-db.ts` strips the fills to get one template with an
+`@<pathIndex>@` placeholder per path, and stores per exercise only which of its
+23 regions are shaded and how strongly (`RegionMap`). The renderer substitutes
+theme colours in a single regex pass (`domain/muscleArt.ts`).
+
+Keeping the region map verbatim, rather than deriving it from our own muscle
+labels, is deliberate: the source art is finer-grained than the 15 labels the
+pages use — an exercise labelled "Back" shades the lat *and* erector regions —
+and no lossless mapping recovers that. Custom exercises have no region map and
+fall back to projecting their muscle labels onto the same figure, which is
+lossy and only they pay for.
+
+The painted document is cached by *region signature* plus palette rather than by
+exercise, because two exercises that work the same muscles produce the same 53 KB
+string, and the props driving it are fresh arrays on every list render. A
+`useMemo` inside the component cannot carry a result across rows; the cache in
+`domain/muscleArt.ts` can.
+
+The licence of this material is **not settled** — see
+[ART_LICENSING.md](ART_LICENSING.md). That is a blocker for distribution, not a
+todo.
 
 ### Gotcha: bundled non-image assets are unreadable in release builds
+
+Learned from the retired Commons artwork, and the reason the muscle template is
+a `.ts` file full of string literal rather than a bundled `.svg`.
 
 The first implementation `require()`d the .svg files and read them with
 expo-asset + expo-file-system. It worked perfectly in development and failed
@@ -138,23 +165,28 @@ localUri, marks the asset `downloaded: true`, and never copies it; `new
 File(uri).text()` then throws `IllegalArgumentException: URI is not absolute`.
 In development Metro serves an http URL, so everything looked fine.
 
-The markup is therefore embedded as JS string literals
-(`scripts/build-art-registry.ts` → `src/data/art/`). It costs ~4.8 MB of bundle,
-which for an app whose point is these illustrations is the right trade. It also
-made `ExerciseArt` synchronous, removing a loading state and a failure path.
+Embedding the markup in the JS bundle also makes the renderer synchronous,
+removing a loading state and a failure path. It cost ~4.8 MB when it was 353
+illustrations; the one shared template costs 53 KB. The videos are the case
+where this does not apply — they are far too large to embed and are shipped as
+real files instead (`plugins/withExerciseMedia.js`).
 
-### Gotcha: react-native-svg cannot parse the artwork's transform
+### Gotcha: react-native-svg cannot parse a compact transform
 
-Every file uses `transform="matrix(.1 0 0-.1 0 960)"`. The SVG grammar allows a
-minus sign to act as a number separator, and browsers render it correctly, but
-react-native-svg's generated PEG parser requires a comma or whitespace and
-throws. react-native-svg swallows the error, so the matrix is simply dropped —
-costing the 0.1 scale and the Y-flip, which puts the artwork ten times too large
-and upside down, i.e. off-canvas and apparently blank.
+The Everkinetic files used `transform="matrix(.1 0 0-.1 0 960)"`. The SVG
+grammar allows a minus sign to act as a number separator, and browsers render it
+correctly, but react-native-svg's generated PEG parser requires a comma or
+whitespace and throws. react-native-svg swallows the error, so the matrix is
+simply dropped — costing the 0.1 scale and the Y-flip, which puts the artwork
+ten times too large and upside down, i.e. off-canvas and apparently blank.
 
-`src/domain/svgCompat.ts` inserts the missing whitespace in memory. Its test
-runs react-native-svg's own parser to prove the input fails and the output
-parses, and asserts that all 353 bundled files need the fix.
+`src/domain/svgCompat.ts` inserts the missing whitespace in memory. **Nothing
+shipped calls it now**: the muscle template's only transforms are
+`translate(0,0)` and `translate(182,0)`, so `MuscleMap` skips a 53 KB scan that
+would find nothing. What keeps the module alive is `muscleArt.test.ts` asserting
+`needsSvgNormalisation(MUSCLE_ART_TEMPLATE) === false` — a regenerated template
+that reintroduces the compact form fails a test rather than rendering blank, and
+the fix is already written.
 
 ### Gotcha: "is this day in the future" is a DAY comparison
 
@@ -184,5 +216,6 @@ anything importing it untestable on node.
 - **Exercise reordering is a menu, not drag-and-drop** ("Move up" / "Move
   down"), for the same reason.
 - **Tab icons are emoji.** A licensed icon set is a later pass.
-- **The body-map fallback is small in dense lists** (46 px). Legible but not
-  ideal; a dedicated small glyph would be better.
+- **The muscle figure is small in dense lists** (54–64 px). The drawing is
+  height-constrained, so cropping to a single figure would not make it any
+  larger — a dedicated small glyph is the real fix.

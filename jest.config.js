@@ -1,9 +1,9 @@
 /**
  * Two projects on purpose:
  *
- *  - "domain" runs pure TypeScript — the rules in src/domain, the seed
- *    catalogue, the dependency-free db helpers, and the build scripts — on
- *    plain node. No React Native transform, no jsdom, so it starts in
+ *  - "domain" runs pure TypeScript — the rules in src/domain, the generated
+ *    exercise catalogue, the dependency-free db helpers, and the build scripts
+ *    — on plain node. No React Native transform, no jsdom, so it starts in
  *    milliseconds and can run on every save.
  *
  *  - "app" uses the jest-expo preset for anything that touches React Native or

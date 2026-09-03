@@ -1,7 +1,7 @@
 # IronLog
 
-An Android workout tracker: log sessions, build routines, browse a 230-exercise
-library, and track progress with charts and personal records.
+An Android workout tracker: log sessions, build routines, browse a
+1069-exercise library, and track progress with charts and personal records.
 
 Functionally a clone of [Hevy](https://www.hevyapp.com/), built on the same
 stack, with the **social half deliberately left out** — no feed, followers,
@@ -29,14 +29,15 @@ Sept 2024, EOL 30 Sept 2025), so local persistence is SQLite + Drizzle.
 
 ```
 src/
-  domain/       Pure TypeScript rules. No React, no DB. 195 unit tests.
+  domain/       Pure TypeScript rules. No React, no DB. Heavily unit-tested.
   db/           Drizzle schema, migrations, repositories, backup
   stores/       MobX: active workout, settings, timers
   hooks/        Live queries and derived data
   screens/      One folder per feature area
-  components/   Shared UI, body map, exercise art, charts
-scripts/        Commons art harvest, asset registry, bundle verification
-assets/art/     353 exercise SVGs (unmodified) + manifest.json
+  components/   Shared UI, muscle map, body map, exercise video, charts
+  data/         Generated exercise catalogue and muscle-art template
+scripts/        Catalogue and muscle-template generators
+exercises_db/   Source corpus (1069 dirs), NOT bundled — see plugins/
 ```
 
 Three ideas carry most of the design:
@@ -64,24 +65,28 @@ OS freezing JS timers while the phone is in a pocket.
 
 ## Exercise art
 
-230 exercises. **179 have real illustrations**; the other 51 fall back to a
-highlighted muscle map, so nothing renders blank.
+Every exercise has a combined front+back **"muscles worked" figure** and a
+**demonstration video**.
 
-- **353 SVGs** by Everkinetic, harvested from [Wikimedia Commons](https://commons.wikimedia.org/wiki/Category:Weight_training_diagrams), **CC BY-SA 3.0**
-- **Muscle map** from `react-native-body-highlighter`, **MIT**
+All 1069 source figures turned out to be the *same* drawing with different
+`fill` attributes, so the app ships **one** 53 KB template with an
+`@<pathIndex>@` placeholder per path (`src/data/muscleArt/template.ts`) plus a
+per-exercise map of which of its 23 regions to shade
+(`RegionMap` in `src/data/exercises/types.ts`). Theme colours are substituted at
+render time by `src/domain/muscleArt.ts`. That is 58 MB of near-duplicate SVG
+reduced to 53 KB, and it reproduces the source shading exactly — a property the
+generator asserts.
 
-The illustrations ship **byte-identical** to what Commons served, embedded as
-string literals in `src/data/art/` and asserted equal to their source files by
-test. They contain no `fill` attribute at all, so the app tints them at render
-time for light/dark mode without ever editing one — which keeps them a
-*collection* rather than Adapted Material under CC BY-SA, and keeps share-alike
-away from the app's own code.
+Custom exercises have no region map, so they fall back to projecting their
+muscle labels onto the same figure. `react-native-body-highlighter` (**MIT**) is
+still used, but only for the volume heatmap and the custom-exercise editor.
 
-**Read [`docs/ART_LICENSING.md`](docs/ART_LICENSING.md) before touching
-`assets/art/` or writing any terms of use.** It records four rules that are easy
-to break by accident, including one that would put us in breach of the licence.
-
-Coverage is generated: [`docs/art-coverage.md`](docs/art-coverage.md).
+**The catalogue's licence is not established.** The prose, figures and videos
+are derived from `fitbod.me` pages, one per exercise, recorded in each entry's
+`url`. No grant has been identified and none is claimed. Read
+[`docs/ART_LICENSING.md`](docs/ART_LICENSING.md) before writing any terms of use
+or adding a licence line to the Credits screen — and settle this before
+distributing the app.
 
 ## Setup
 
@@ -96,13 +101,12 @@ npm run android           # build + install on a connected device
 ## Verification
 
 ```bash
-npm run verify            # typecheck + lint + 252 unit tests
-npm run verify:bundle     # proves all 353 SVGs ship unmodified, and are in the APK
+npm run verify            # typecheck + lint + unit tests
 cd android && ./gradlew assembleRelease
 ```
 
-Verified on an Android 36 emulator: migrations, seeding 230 exercises, the
-exercise library and its artwork, logging a set (volume, rest timer, live PR
+Verified on an Android 36 emulator: migrations, seeding the exercise catalogue,
+the exercise library and its artwork, logging a set (volume, rest timer, live PR
 banner), **force-stop mid-workout followed by correct resume**, finishing, and
 history.
 
@@ -111,19 +115,19 @@ published Epley/Brzycki tables, plate solves against hand-computed loads, PR
 detection over a scripted set sequence, rest-timer behaviour across simulated
 backgrounding, and streak logic across DST boundaries.
 
-Two test suites exist to catch specific classes of mistake:
+Three test suites exist to catch specific classes of mistake:
 
 - `src/domain/muscleMap.test.ts` asserts the slug tables still match the
   installed `react-native-body-highlighter`, so a dependency bump that changes
   the taxonomy fails a test instead of silently rendering blank bodies.
-- `scripts/art.test.ts` re-hashes every bundled SVG against `manifest.json`,
-  asserts each embedded string is byte-identical to its file, and asserts none
-  contains a `fill`, `style`, `<style>`, `base64` or `<image>` — the licensing
-  invariant.
+- `src/domain/muscleArt.test.ts` asserts the 81 template paths partition exactly
+  into regions, silhouette and shorts. An unclaimed path renders with an empty
+  fill — a hole in the figure — so a regenerated template that drifts fails a
+  test instead of shipping.
 - `src/domain/svgCompat.test.ts` runs react-native-svg's *own* transform parser
-  to prove the artwork's compact `matrix(.1 0 0-.1 …)` fails it and that the
-  normalised output parses. Without that fix every illustration renders blank in
-  a release build.
+  to prove the compact `matrix(.1 0 0-.1 …)` form fails it and that the
+  normalised output parses. Nothing shipped needs the fix today; the test is
+  what makes it noticed if a regenerated template reintroduces the form.
 
 ## Not built
 

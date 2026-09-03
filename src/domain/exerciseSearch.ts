@@ -1,12 +1,12 @@
 /**
  * Exercise-name normalisation, matching and search.
  *
- * Two consumers, one implementation:
- *  1. In-app search — typing "deadlift" must find "Barbell Dead Lift".
- *  2. The Commons art harvest — the Everkinetic set writes compound words as
- *     TWO words ("dead lift", "pull down", "chin up"), so a naive exact match
- *     against a standard exercise list reports false misses. ART_LICENSING_
- *     RESEARCH.md records this tripping up its own first coverage audit.
+ * Catalogues and the people typing into the search box do not agree on
+ * spelling: compound movements appear both joined and spaced ("deadlift" vs
+ * "dead lift", "pulldown" vs "pull down", "chinup" vs "chin up"), so a naive
+ * match reports false misses in both directions. The retired Commons art
+ * harvest hit exactly this, which ART_LICENSING_RESEARCH.md records tripping up
+ * its own first coverage audit.
  *
  * The fix is to canonicalise both spellings onto one token before comparing.
  */
@@ -53,8 +53,21 @@ const COMPOUND_ALIASES: readonly (readonly [string, readonly string[]])[] = [
 
 /** Words that carry no discriminating meaning in an exercise name. */
 const STOPWORDS = new Set([
-  'the', 'a', 'an', 'with', 'on', 'in', 'of', 'and', 'or', 'to', 'for', 'using',
-  'your', 'variation', 'exercise',
+  'the',
+  'a',
+  'an',
+  'with',
+  'on',
+  'in',
+  'of',
+  'and',
+  'or',
+  'to',
+  'for',
+  'using',
+  'your',
+  'variation',
+  'exercise',
 ]);
 
 /** Equipment and phrasing synonyms, applied token-by-token. */
@@ -104,10 +117,37 @@ function singularise(token: string): string {
 }
 
 /**
+ * Memo for `normaliseName`.
+ *
+ * Incremental search normalises every catalogue name on every keystroke, and at
+ * 1069 exercises that is 1069 x (three regexes + a pass over every compound
+ * alias) per character typed — measured at ~4 ms on a desktop, so several
+ * dropped frames on a phone. The inputs are a fixed set of names, so the work
+ * is entirely repeated.
+ *
+ * Bounded and cleared wholesale rather than evicted one at a time: query
+ * strings pass through here too, so an unbounded map would grow with every
+ * partial query a user ever types. The limit sits well above the catalogue, so
+ * in practice the names stay resident and only queries churn.
+ */
+const MAX_NORMALISED = 4096;
+const normalisedCache = new Map<string, string>();
+
+/**
  * Collapse a display name to a comparable string: lowercased, punctuation
  * stripped, compound words joined, synonyms folded, plurals removed.
  */
 export function normaliseName(name: string): string {
+  const memo = normalisedCache.get(name);
+  if (memo !== undefined) return memo;
+
+  const normalised = computeNormalisedName(name);
+  if (normalisedCache.size >= MAX_NORMALISED) normalisedCache.clear();
+  normalisedCache.set(name, normalised);
+  return normalised;
+}
+
+function computeNormalisedName(name: string): string {
   let s = name
     .toLowerCase()
     .replace(/[’']/g, '')

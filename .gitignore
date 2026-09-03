@@ -42,6 +42,9 @@ yarn-error.*
 
 # IronLog
 /assets/art/*.svg.tmp
+# Raw-asset staging tree for the exercise clips: 3.4 GiB of hard links into
+# exercises_db/, rebuilt by `npm run media:stage`. See docs/EXERCISE_MEDIA.md.
+/media/
 coverage/
 *.log
 .env

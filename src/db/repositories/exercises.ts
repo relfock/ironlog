@@ -67,8 +67,10 @@ export interface ExerciseFilter {
 /**
  * Filtering happens in JS rather than SQL because the muscle lists are JSON
  * columns and the search needs the alias-aware matcher from
- * `domain/exerciseSearch` (so "deadlift" finds "dead lift"). At ~250 rows this
- * is far below the threshold where it would be worth denormalising.
+ * `domain/exerciseSearch` (so "deadlift" finds "dead lift"). At ~1100 rows the
+ * whole table is already in memory from `useLiveQuery`, so this is a scan over
+ * an array rather than a query — denormalising the muscles into their own table
+ * would buy nothing until the catalogue is an order of magnitude larger.
  */
 export function filterExercises(
   all: readonly Exercise[],

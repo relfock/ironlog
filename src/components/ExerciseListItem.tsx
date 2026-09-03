@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
-import { ExerciseArt } from './ExerciseArt';
+import { MuscleMap } from './MuscleMap';
 import { Caption } from './ui';
+import { exerciseBySlug } from '@/data/exercises';
 import type { Exercise } from '@/db/repositories/exercises';
-import { MUSCLE_LABELS, buildHighlight } from '@/domain/muscleMap';
+import { MUSCLE_LABELS } from '@/domain/muscleMap';
 import { usePalette } from '@/theme/ThemeProvider';
 import { fontSize, radius, spacing } from '@/theme/tokens';
 
@@ -48,9 +49,11 @@ export function ExerciseListItem({
   selected?: boolean;
 }) {
   const palette = usePalette();
-  const parts = useMemo(
-    () => buildHighlight(exercise.primary, exercise.secondary),
-    [exercise.primary, exercise.secondary],
+  // Custom exercises have no catalogue entry, so they fall back to the muscle
+  // lists MuscleMap accepts alongside `regions`.
+  const regions = useMemo(
+    () => exerciseBySlug(exercise.artKey)?.regions ?? null,
+    [exercise.artKey],
   );
 
   // Hevy shows one line of context under the name: the primary muscle only.
@@ -70,9 +73,19 @@ export function ExerciseListItem({
         },
       ]}
     >
-      {/* Animated, like Hevy's GIF previews; the two Everkinetic frames loop. */}
+      {/*
+        Both figures, not `side="front"`. The drawing is height-constrained, so
+        cropping to one figure makes it no larger (see `artBox`) — it only
+        wastes half the square thumbnail, and hides every back-dominant
+        exercise's highlighting entirely.
+      */}
       <View style={[styles.thumb, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-        <ExerciseArt artKey={exercise.artKey} parts={parts} size={60} animate />
+        <MuscleMap
+          regions={regions}
+          primary={exercise.primary}
+          secondary={exercise.secondary}
+          size={60}
+        />
       </View>
 
       <View style={{ flex: 1 }}>

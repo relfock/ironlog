@@ -26,6 +26,15 @@ export interface Palette {
   readonly bodyBase: string;
   readonly bodyPrimary: string;
   readonly bodySecondary: string;
+  /**
+   * The muscle-worked artwork draws a silhouette behind the muscles and a pair
+   * of shorts over it. Both are fixed in the source files (#343542 and
+   * #b2b4e0) and carry no meaning, so they are themed as neutrals — but the
+   * silhouette MUST stay distinguishable from `bodyBase` or the figure reads as
+   * a flat blob. See src/components/MuscleMap.tsx.
+   */
+  readonly bodySilhouette: string;
+  readonly bodyShorts: string;
   /** Heatmap ramp, hottest first — indexes match `intensity` 1..n. */
   readonly heatRamp: readonly string[];
   readonly setTypeWarmup: string;
@@ -50,6 +59,8 @@ export const lightPalette: Palette = {
   bodyBase: '#D6DAE0',
   bodyPrimary: '#008CFF',
   bodySecondary: '#93B4F7',
+  bodySilhouette: '#B2BAC5',
+  bodyShorts: '#98A0B8',
   heatRamp: ['#123F8F', '#2C6BED', '#7BA4F5', '#C3D6FB'],
   setTypeWarmup: '#C8820A',
   setTypeDrop: '#7A4BD0',
@@ -73,6 +84,8 @@ export const darkPalette: Palette = {
   bodyBase: '#2E353D',
   bodyPrimary: '#FF7A50',
   bodySecondary: '#A66A4F',
+  bodySilhouette: '#20262E',
+  bodyShorts: '#3A4250',
   heatRamp: ['#9FC0FF', '#5C90FF', '#3A5DA8', '#26364F'],
   setTypeWarmup: '#F0B429',
   setTypeDrop: '#A57BEA',

@@ -13,12 +13,13 @@
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "db:generate": "drizzle-kit generate",
-    "art:harvest": "tsx scripts/harvest-art.ts",
-    "art:registry": "tsx scripts/build-art-registry.ts",
-    "verify:bundle": "tsx scripts/verify-bundle.ts",
     "verify": "npm run typecheck && npm run lint && npm test",
     "bundle": "expo export --platform android --output-dir dist",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "art:template": "tsx scripts/build-muscle-template.ts",
+    "db:exercises": "tsx scripts/build-exercise-db.ts",
+    "media:stage": "tsx scripts/stage-media.ts",
+    "media:compress": "tsx scripts/compress-media.ts"
   },
   "dependencies": {
     "@react-navigation/bottom-tabs": "^7.18.18",
@@ -40,6 +41,7 @@
     "expo-sqlite": "~57.0.2",
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.3",
+    "expo-video": "~57.0.3",
     "mobx": "^7.0.3",
     "mobx-react-lite": "^5.0.3",
     "react": "^19.2.3",

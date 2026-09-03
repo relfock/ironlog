@@ -1,32 +1,33 @@
 # Third-party licences
 
 IronLog bundles the following third-party material. See
-`docs/ART_LICENSING.md` for the obligations these place on the project.
+`docs/ART_LICENSING.md` for the obligations these place on the project, and for
+the one that is not yet settled.
 
 ---
 
-## Exercise illustrations — CC BY-SA 3.0
+## Exercise catalogue and media — licence NOT established
 
-353 SVG illustrations covering 179 exercises, in `assets/art/`.
+1069 exercise names, instruction steps, common-mistake notes, muscle-worked
+figures (`src/data/muscleArt/`, `src/data/exercises/`) and demonstration videos.
 
-**Author:** Everkinetic
-**Source:** [Wikimedia Commons, Category:Weight training diagrams](https://commons.wikimedia.org/wiki/Category:Weight_training_diagrams)
-**Original database:** http://db.everkinetic.com/
-**Licence:** [Creative Commons Attribution-ShareAlike 3.0 Unported](https://creativecommons.org/licenses/by-sa/3.0/)
+**Source:** pages under https://fitbod.me/exercises/ — one per exercise. Each
+catalogue entry records the exact page it came from in its `url` field, and the
+app's Credits screen is generated from those.
+**Licence:** none identified. No grant is asserted here.
 
-These files are redistributed **unmodified**. Per-file attribution, including
-the Commons file page and a sha256 of the exact bytes shipped, is recorded in
-`assets/art/manifest.json` and displayed in the app's Credits screen.
+Unlike the Wikimedia Commons set this replaced, the figure is **adapted** rather
+than redistributed verbatim: the 1069 near-identical source drawings are
+collapsed into one template plus a per-exercise region map.
 
-You may extract these illustrations from this application and reuse them under
-the terms of CC BY-SA 3.0. Nothing in IronLog's terms of use restricts that
-right.
+This is unresolved and blocks distribution. See `docs/ART_LICENSING.md`.
 
 ---
 
 ## react-native-body-highlighter — MIT
 
-Muscle-map body artwork and component.
+Muscle-map body artwork and component, used by the volume heatmap and the
+custom-exercise editor.
 **Source:** https://github.com/HichamELBSI/react-native-body-highlighter
 
 ```

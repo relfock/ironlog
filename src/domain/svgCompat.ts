@@ -1,8 +1,9 @@
 /**
- * Render-time compatibility fixes for the bundled SVGs.
+ * Render-time compatibility fix for SVG transforms react-native-svg cannot
+ * parse.
  *
  * THE BUG THIS EXISTS FOR
- * Every Everkinetic file wraps its paths in:
+ * The retired Everkinetic illustrations wrapped their paths in:
  *     <g transform="matrix(.1 0 0-.1 0 960)">
  * Note `0-.1` — no whitespace before the minus. That is perfectly valid SVG:
  * the grammar allows a sign to act as a number separator, and browsers render it
@@ -14,12 +15,13 @@
  * large and upside down — i.e. off-canvas and apparently blank. It looked like
  * a missing-asset problem and was not.
  *
- * WHY NORMALISE AT RENDER TIME RATHER THAN AT BUILD TIME
- * The embedded markup stays byte-identical to what Commons published, which is
- * the whole basis of the licensing position (docs/ART_LICENSING.md) and is
- * asserted by tests. Fixing it in memory, on the way to the renderer, is the
- * same move as applying the colour at render time: the artwork we *distribute*
- * is untouched.
+ * NOTHING SHIPPED APPLIES THIS ANY MORE. The muscle-worked template that
+ * replaced those illustrations only uses `translate(0,0)` and `translate(182,0)`,
+ * so `MuscleMap` skips the call rather than scanning 53 KB for nothing. What
+ * keeps this module here is `muscleArt.test.ts`, which asserts
+ * `needsSvgNormalisation(MUSCLE_ART_TEMPLATE) === false`: a regenerated template
+ * that reintroduces the compact form then fails a test instead of rendering
+ * blank, and the fix is already written.
  *
  * The path `d` attributes use the same compact syntax and are NOT touched —
  * react-native-svg's path parser handles them correctly. Only `transform`

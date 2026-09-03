@@ -7,7 +7,7 @@ import {
   tokenise,
 } from './exerciseSearch';
 
-describe('normaliseName — the Commons two-word compound problem', () => {
+describe('normaliseName — the two-word compound problem', () => {
   it('joins "dead lift" and "deadlift" onto one token', () => {
     // This is the exact trap ART_LICENSING_RESEARCH.md flagged.
     expect(normaliseName('Barbell dead lifts')).toContain('deadlift');

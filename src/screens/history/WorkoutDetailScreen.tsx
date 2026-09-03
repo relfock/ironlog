@@ -2,11 +2,12 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import { observer } from 'mobx-react-lite';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ExerciseArt } from '@/components/ExerciseArt';
+import { MuscleMap } from '@/components/MuscleMap';
 import { NumberField } from '@/components/NumberField';
 import { PromptModal } from '@/components/PromptModal';
 import { Body, Button, Caption, Card, H1, H2, Pill, Row } from '@/components/ui';
 import { setTypeLabel } from '@/components/SetTypeBadge';
+import { exerciseBySlug } from '@/data/exercises';
 import { createRoutineFromWorkout } from '@/db/repositories/routines';
 import {
   deleteSet,
@@ -17,7 +18,6 @@ import {
   updateWorkoutMeta,
   type WorkoutData,
 } from '@/db/repositories/workouts';
-import { buildHighlight } from '@/domain/muscleMap';
 import type { Muscle } from '@/domain/types';
 import { formatDuration, formatDurationCompact, formatWeight, fromKg, toKg } from '@/domain/units';
 import type { RootStackParamList } from '@/navigation/types';
@@ -141,15 +141,17 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
         ) : null}
 
         {workout.exercises.map((we) => {
-          const parts = buildHighlight(
-            we.primaryMuscles as Muscle[],
-            we.secondaryMuscles as Muscle[],
-          );
+          const regions = exerciseBySlug(we.artKey)?.regions ?? null;
           let working = 0;
           return (
             <Card key={we.id} style={{ marginTop: spacing.md }}>
               <Row style={{ alignItems: 'flex-start' }}>
-                <ExerciseArt artKey={we.artKey} parts={parts} size={54} animate={false} />
+                <MuscleMap
+                  regions={regions}
+                  primary={we.primaryMuscles as Muscle[]}
+                  secondary={we.secondaryMuscles as Muscle[]}
+                  size={54}
+                />
                 <View style={{ flex: 1 }}>
                   <H2>{we.exerciseName}</H2>
                   {we.supersetGroup !== null ? (

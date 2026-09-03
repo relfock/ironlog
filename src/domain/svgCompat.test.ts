@@ -1,7 +1,7 @@
 import { needsSvgNormalisation, normaliseSvgForRenderer } from './svgCompat';
 
 describe('normaliseSvgForRenderer', () => {
-  it('fixes the exact transform the Everkinetic set uses', () => {
+  it('fixes the compact matrix form react-native-svg rejects', () => {
     const input = '<svg><g transform="matrix(.1 0 0-.1 0 960)"><path d="m1 2"/></g></svg>';
     expect(normaliseSvgForRenderer(input)).toContain('transform="matrix(.1 0 0 -.1 0 960)"');
   });
@@ -72,40 +72,5 @@ describe('needsSvgNormalisation', () => {
   it('is false for clean documents', () => {
     expect(needsSvgNormalisation('<g transform="matrix(.1 0 0 -.1 0 960)"/>')).toBe(false);
     expect(needsSvgNormalisation('<svg><path d="m1-2"/></svg>')).toBe(false);
-  });
-});
-
-describe('the real bundled artwork', () => {
-   
-  const { artFrames, artSlugs } = require('../data/art') as {
-    artFrames: (s: string) => string[] | null;
-    artSlugs: () => string[];
-  };
-
-  it('every bundled file needs the fix — so the fix must be applied everywhere', () => {
-    const slugs = artSlugs();
-    expect(slugs.length).toBeGreaterThan(100);
-    for (const slug of slugs) {
-      for (const svg of artFrames(slug) ?? []) {
-        expect(needsSvgNormalisation(svg)).toBe(true);
-      }
-    }
-  });
-
-  it('normalises all of them into something parseable', () => {
-     
-    const mod = require('react-native-svg/lib/commonjs/lib/extract/transform.js');
-    const parse: (s: string) => number[] = mod.parse ?? mod.default?.parse;
-
-    for (const slug of artSlugs()) {
-      for (const svg of artFrames(slug) ?? []) {
-        const fixed = normaliseSvgForRenderer(svg);
-        expect(needsSvgNormalisation(fixed)).toBe(false);
-        for (const m of fixed.match(/\btransform="([^"]*)"/g) ?? []) {
-          const value = /transform="([^"]*)"/.exec(m)![1]!;
-          expect(() => parse(value)).not.toThrow();
-        }
-      }
-    }
   });
 });

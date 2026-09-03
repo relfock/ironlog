@@ -8,9 +8,7 @@
     "scheme": "ironlog",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "assetBundlePatterns": [
-      "assets/**/*"
-    ],
+    "assetBundlePatterns": ["assets/**/*"],
     "android": {
       "package": "com.ironlog.app",
       "versionCode": 1,
@@ -37,16 +35,21 @@
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
             "minSdkVersion": 24,
-            "buildArchs": [
-              "arm64-v8a",
-              "x86_64"
-            ]
+            "buildArchs": ["arm64-v8a", "x86_64"]
           }
         }
       ],
       "expo-audio",
       "expo-sharing",
-      "./plugins/withGradleMemory"
+      "./plugins/withGradleMemory",
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": false
+        }
+      ],
+      "./plugins/withExerciseMedia"
     ],
     "experiments": {
       "typedRoutes": false,
