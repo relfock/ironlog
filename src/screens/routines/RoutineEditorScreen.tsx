@@ -240,7 +240,11 @@ const RoutineExerciseCard = observer(function RoutineExerciseCard({
           secondary={re.secondaryMuscles as Muscle[]}
           size={54}
         />
-        <Pressable style={{ flex: 1 }} onPress={showMenu} accessibilityLabel={`${re.exerciseName} options`}>
+        <Pressable
+          style={{ flex: 1 }}
+          onPress={() => navigation.navigate('ExerciseDetail', { exerciseId: re.exerciseId })}
+          accessibilityLabel={`${re.exerciseName} details`}
+        >
           <Text style={{ color: palette.accent, fontSize: fontSize.md, fontWeight: '700' }}>
             {re.exerciseName}
           </Text>

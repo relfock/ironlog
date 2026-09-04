@@ -153,7 +153,14 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
                   size={54}
                 />
                 <View style={{ flex: 1 }}>
-                  <H2>{we.exerciseName}</H2>
+                  <Pressable
+                    onPress={() =>
+                      navigation.navigate('ExerciseDetail', { exerciseId: we.exerciseId })
+                    }
+                    accessibilityLabel={`${we.exerciseName} details`}
+                  >
+                    <H2>{we.exerciseName}</H2>
+                  </Pressable>
                   {we.supersetGroup !== null ? (
                     <Pill label={`SUPERSET ${we.supersetGroup + 1}`} tone={palette.accent} />
                   ) : null}

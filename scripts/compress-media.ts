@@ -46,6 +46,22 @@ const CRF = 28;
 
 const force = process.argv.includes('--force');
 
+// One ffmpeg process per worker, each capped at a single thread (`-threads 1`),
+// so wall-clock speed tracks the number of workers. Default to every core;
+// `--jobs=N` overrides when the box is otherwise busy (this project's build
+// machine is frequently saturated).
+function parseJobs(): number {
+  const args = process.argv;
+  const inline = args
+    .map((a) => /^--jobs=(\d+)$/.exec(a))
+    .filter((m): m is RegExpExecArray => m !== null);
+  if (inline.length > 0) return Math.max(1, Number(inline[inline.length - 1]![1]));
+  const sep = args.indexOf('--jobs');
+  const next = sep >= 0 ? Number(args[sep + 1]) : NaN;
+  return Number.isFinite(next) && next >= 1 ? Math.floor(next) : Math.max(1, availableParallelism());
+}
+const JOBS = parseJobs();
+
 interface Encoded {
   readonly inputBytes: number;
   readonly outputBytes: number;
@@ -143,7 +159,7 @@ async function encode(name: string, state: State): Promise<void> {
 
 /** Fixed-size worker pool over a shared cursor. */
 async function runPool(names: readonly string[], state: State): Promise<number> {
-  const jobs = Math.max(1, availableParallelism());
+  const jobs = JOBS;
   let cursor = 0;
   let done = 0;
   let failed = 0;

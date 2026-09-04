@@ -11,6 +11,7 @@ import {
   exportSetsCsv,
   importBackup,
 } from '@/db/backup';
+import { importCsv } from '@/db/csvImport';
 import { seedExercises } from '@/db/seed';
 import { useStores } from '@/stores/RootStore';
 import { spacing } from '@/theme/tokens';
@@ -131,6 +132,60 @@ export const DataExportScreen = observer(function DataExportScreen() {
     );
   };
 
+  const doImportCsv = async () => {
+    const picked = await DocumentPicker.getDocumentAsync({
+      type: ['text/csv', 'text/comma-separated-values', '*/*'],
+      copyToCacheDirectory: true,
+    });
+    if (picked.canceled) return;
+    const asset = picked.assets[0];
+    if (asset === undefined) return;
+
+    Alert.alert(
+      'Import CSV?',
+      'Workouts from the CSV will be added to your history. Exercises are matched by name — unknown exercises are created automatically.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Import',
+          onPress: () => {
+            void (async () => {
+              setBusy('csv-import');
+              try {
+                const csv = await new File(asset.uri).text();
+                const result = await importCsv(csv);
+
+                const lines: string[] = [
+                  `${result.workoutsImported} workout${result.workoutsImported === 1 ? '' : 's'} imported`,
+                  `${result.exercisesMatched} exercise${result.exercisesMatched === 1 ? '' : 's'} matched`,
+                ];
+                if (result.exercisesCreated > 0) {
+                  lines.push(`${result.exercisesCreated} new exercise${result.exercisesCreated === 1 ? '' : 's'} created`);
+                }
+                if (result.routinesCreated > 0) {
+                  lines.push(`${result.routinesCreated} routine${result.routinesCreated === 1 ? '' : 's'} created`);
+                }
+                if (result.skipped.length > 0) {
+                  lines.push(`\nSkipped:\n${result.skipped.map((s) => `  · ${s}`).join('\n')}`);
+                }
+                Alert.alert('CSV import complete', lines.join('\n'));
+              } catch (err) {
+                Alert.alert(
+                  'Import failed',
+                  `Your existing data was left unchanged.\n\n${
+                    err instanceof Error ? err.message : String(err)
+                  }`,
+                );
+              } finally {
+                setBusy(null);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.scroll}>
       <H1>Backup and export</H1>
@@ -175,6 +230,22 @@ export const DataExportScreen = observer(function DataExportScreen() {
           variant="danger"
           onPress={() => void doImport()}
           loading={busy === 'import'}
+          style={{ marginTop: spacing.lg }}
+        />
+      </Card>
+
+      <Card style={{ marginTop: spacing.md }}>
+        <H2>Import from CSV</H2>
+        <Body muted style={{ marginTop: spacing.xs }}>
+          Import workouts from a CSV file (Strong app export or similar format). Exercises
+          are matched by name (unknown ones are created automatically), and routines are
+          derived from each workout title — combining repeated titles into one routine.
+        </Body>
+        <Button
+          label="Import CSV"
+          variant="secondary"
+          onPress={() => void doImportCsv()}
+          loading={busy === 'csv-import'}
           style={{ marginTop: spacing.lg }}
         />
       </Card>

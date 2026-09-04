@@ -42,6 +42,9 @@ yarn-error.*
 
 # IronLog
 /assets/art/*.svg.tmp
+# Source corpus of exercise clips (3.6 GiB, 1069 dirs): local, untracked.
+# See docs/EXERCISE_MEDIA.md.
+/exercises_db/
 # Raw-asset staging tree for the exercise clips: 3.4 GiB of hard links into
 # exercises_db/, rebuilt by `npm run media:stage`. See docs/EXERCISE_MEDIA.md.
 /media/

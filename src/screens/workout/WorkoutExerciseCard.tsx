@@ -136,7 +136,11 @@ export const WorkoutExerciseCard = observer(function WorkoutExerciseCard({
           size={64}
         />
 
-        <Pressable style={{ flex: 1 }} onPress={showMenu} accessibilityLabel={`${we.exerciseName} options`}>
+        <Pressable
+          style={{ flex: 1 }}
+          onPress={() => navigation.navigate('ExerciseDetail', { exerciseId: we.exerciseId })}
+          accessibilityLabel={`${we.exerciseName} details`}
+        >
           <Text style={{ color: palette.accent, fontSize: fontSize.lg, fontWeight: '700' }}>
             {we.exerciseName}
           </Text>
