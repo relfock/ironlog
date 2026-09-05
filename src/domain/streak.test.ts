@@ -8,6 +8,7 @@ import {
   startOfLocalDay,
   startOfLocalMonth,
   startOfLocalWeek,
+  weekYear,
   weeksOfMonth,
   weeklyStreak,
 } from './streak';
@@ -58,13 +59,18 @@ describe('local-time bucketing', () => {
 describe('week-span helpers', () => {
   it('formatWeekSpan renders the range for a Monday-start week', () => {
     const week = startOfLocalWeek(NOW, 1);
-    expect(formatWeekSpan(week)).toBe('AUG 31 - SEP 6, 26');
+    expect(formatWeekSpan(week)).toBe('AUG 31 - SEP 6');
   });
 
-  it('formatWeekSpan repeats the month and uses the week-end year', () => {
-    expect(formatWeekSpan(new Date(2026, 7, 24).getTime())).toBe('AUG 24 - AUG 30, 26');
+  it('formatWeekSpan repeats the month and renders no year', () => {
+    expect(formatWeekSpan(new Date(2026, 7, 24).getTime())).toBe('AUG 24 - AUG 30');
     // Week spanning New Year: Mon 29 Dec 2025 -> Sun 4 Jan 2026.
-    expect(formatWeekSpan(new Date(2025, 11, 29).getTime())).toBe('DEC 29 - JAN 4, 26');
+    expect(formatWeekSpan(new Date(2025, 11, 29).getTime())).toBe('DEC 29 - JAN 4');
+  });
+
+  it('weekYear reports the year of the week-end day', () => {
+    expect(weekYear(new Date(2026, 7, 24).getTime())).toBe('2026');
+    expect(weekYear(new Date(2025, 11, 29).getTime())).toBe('2026');
   });
 
   it('startOfLocalMonth returns local midnight on the first', () => {

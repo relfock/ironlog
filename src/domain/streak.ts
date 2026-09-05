@@ -63,15 +63,20 @@ const MONTH_ABBREV = [
 ] as const;
 
 /**
- * "AUG 30 - SEP 5, 26" — the readable label for a selected week (spanning from
- * its Monday/Sunday to the following weekend day). The two-digit year is that
- * of the week's last day.
+ * "AUG 30 - SEP 5" — the readable label for a selected week (spanning from
+ * its Monday/Sunday to the following weekend day). The year is rendered
+ * separately via {@link weekYear}.
  */
 export function formatWeekSpan(weekStartMs: number): string {
   const start = new Date(weekStartMs);
   const end = new Date(weekStartMs + 6 * DAY_MS);
-  const shortYear = String(end.getFullYear() % 100).padStart(2, '0');
-  return `${MONTH_ABBREV[start.getMonth()]} ${start.getDate()} - ${MONTH_ABBREV[end.getMonth()]} ${end.getDate()}, ${shortYear}`;
+  return `${MONTH_ABBREV[start.getMonth()]} ${start.getDate()} - ${MONTH_ABBREV[end.getMonth()]} ${end.getDate()}`;
+}
+
+/** Full year of the week's last day (e.g. "2026" for a Dec 29 – Jan 4 week). */
+export function weekYear(weekStartMs: number): string {
+  const end = new Date(weekStartMs + 6 * DAY_MS);
+  return String(end.getFullYear());
 }
 
 /** "2026-08-31" in local time — the key used by the calendar heatmap. */

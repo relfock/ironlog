@@ -6,19 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BodyMap } from '@/components/BodyMap';
 import { CalendarHeatmap } from '@/components/CalendarHeatmap';
 import { HeatmapInfoModal } from '@/components/HeatmapInfoModal';
-import { HeatmapKey } from '@/components/HeatmapKey';
 import { HeatmapLegend } from '@/components/HeatmapLegend';
 import { WeekCalendarSheet } from '@/components/WeekCalendarSheet';
-import { Body, Button, Caption, Card, H1, H2, Row } from '@/components/ui';
+import { Body, Button, Caption, Card, H1, H2 } from '@/components/ui';
 import { buildHeatmap } from '@/domain/muscleMap';
-import {
-  formatWeekSpan,
-  groupByWeek,
-  startOfLocalWeek,
-  weeklyStreak,
-  WEEK_MS,
-} from '@/domain/streak';
-import { formatDurationCompact, formatWeight } from '@/domain/units';
+import { formatWeekSpan, startOfLocalWeek, weekYear, WEEK_MS } from '@/domain/streak';
+import { formatDurationCompact } from '@/domain/units';
 import { useWorkoutHistory } from '@/hooks/useHistory';
 import { useMuscleWeek } from '@/hooks/useMuscleWeek';
 import { useActiveWorkout, useSettings } from '@/stores/RootStore';
@@ -37,7 +30,7 @@ export const HomeScreen = observer(function HomeScreen() {
   const settings = useSettings();
   const active = useActiveWorkout();
   const { workouts } = useWorkoutHistory(60);
-  const { weekStart, weeklyWorkoutGoal, weightUnit } = settings.values;
+  const { weekStart } = settings.values;
   const [selectedWeekStart, setSelectedWeekStart] = useState(() =>
     startOfLocalWeek(Date.now(), weekStart),
   );
@@ -69,30 +62,12 @@ export const HomeScreen = observer(function HomeScreen() {
     [workouts],
   );
 
-  const thisWeek = useMemo(() => {
-    const start = startOfLocalWeek(Date.now(), weekStart);
-    const inWeek = workouts.filter((w) => w.startedAt >= start);
-    return {
-      count: inWeek.length,
-      volume: inWeek.reduce((n, w) => n + w.totalVolumeKg, 0),
-      sets: inWeek.reduce((n, w) => n + w.totalSets, 0),
-      minutes: Math.round(inWeek.reduce((n, w) => n + (w.durationSec ?? 0), 0) / 60),
-    };
-  }, [workouts, weekStart]);
-
-  const streak = useMemo(
-    () => weeklyStreak(groupByWeek(dates, weekStart), weeklyWorkoutGoal, weekStart),
-    [dates, weekStart, weeklyWorkoutGoal],
-  );
-
   const heatScale = useMemo(() => buildBodyHeatScale(palette), [palette]);
 
   const heat = useMemo(
     () => buildHeatmap(setsPerMuscle, heatScale.length),
     [setsPerMuscle, heatScale.length],
   );
-
-  const goalProgress = Math.min(1, thisWeek.count / Math.max(1, weeklyWorkoutGoal));
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: palette.bg }} edges={['top']}>
@@ -119,67 +94,17 @@ export const HomeScreen = observer(function HomeScreen() {
               style={{ marginTop: spacing.lg }}
             />
           </Card>
-        ) : (
-          <Button
-            label="Start a workout"
-            onPress={() => navigation.navigate('Tabs', { screen: 'StartWorkout' })}
-            style={{ marginTop: spacing.lg }}
-          />
-        )}
+        ) : null}
 
         <Card style={{ marginTop: spacing.md }}>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <H2>This week</H2>
-            <Caption>
-              {thisWeek.count} / {weeklyWorkoutGoal} workouts
-            </Caption>
-          </Row>
-
-          <View style={[styles.track, { backgroundColor: palette.surfaceRaised }]}>
-            <View
-              style={{
-                height: '100%',
-                borderRadius: 5,
-                width: `${goalProgress * 100}%`,
-                backgroundColor:
-                  goalProgress >= 1 ? palette.success : palette.accent,
-              }}
-            />
-          </View>
-
-          <Row style={{ marginTop: spacing.lg, justifyContent: 'space-between' }}>
-            <Stat
-              label="VOLUME"
-              value={`${formatWeight(thisWeek.volume, weightUnit)}`}
-              hint={weightUnit}
-            />
-            <Stat label="SETS" value={String(thisWeek.sets)} />
-            <Stat label="TIME" value={`${thisWeek.minutes}`} hint="min" />
-            <Stat
-              label="STREAK"
-              value={String(streak.currentWeeks)}
-              hint={streak.currentWeekPending ? 'pending' : 'weeks'}
-            />
-          </Row>
-        </Card>
-
-        <Card style={{ marginTop: spacing.md }}>
-          <H2>Consistency</H2>
-          <View style={{ marginTop: spacing.md }}>
-            <CalendarHeatmap timestamps={dates} weekStart={weekStart} />
-          </View>
-        </Card>
-
-        <Card style={{ marginTop: spacing.md }}>
-          <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            <H2 style={{ flexShrink: 1 }}>Muscle heatmap</H2>
-            <View style={[styles.weekNav, { borderColor: palette.border }]}>
+          <View style={styles.cardHeader}>
+            <H2>Muscle heatmap</H2>
+            <View style={styles.weekNav}>
               <Pressable
                 onPress={() => shiftWeek(-1)}
                 accessibilityRole="button"
                 accessibilityLabel="Previous week"
-                hitSlop={8}
-                style={styles.weekNavSide}
+                style={[styles.weekNavChevron, { borderColor: palette.border }]}
               >
                 <Text style={[styles.weekNavArrow, { color: palette.text }]}>‹</Text>
               </Pressable>
@@ -187,7 +112,7 @@ export const HomeScreen = observer(function HomeScreen() {
                 onPress={() => setCalendarOpen(true)}
                 accessibilityRole="button"
                 accessibilityLabel="Choose a different week"
-                hitSlop={8}
+                style={styles.weekNavLabelWrap}
               >
                 <Text style={[styles.weekNavLabel, { color: palette.accent }]}>
                   {formatWeekSpan(selectedWeekStart)}
@@ -197,15 +122,16 @@ export const HomeScreen = observer(function HomeScreen() {
                 onPress={() => shiftWeek(1)}
                 accessibilityRole="button"
                 accessibilityLabel="Next week"
-                hitSlop={8}
                 disabled={atCurrentWeek}
-                style={[styles.weekNavSide, { opacity: atCurrentWeek ? 0.35 : 1 }]}
+                style={[
+                  styles.weekNavChevron,
+                  { borderColor: palette.border, opacity: atCurrentWeek ? 0.35 : 1 },
+                ]}
               >
                 <Text style={[styles.weekNavArrow, { color: palette.text }]}>›</Text>
               </Pressable>
             </View>
-          </Row>
-          <HeatmapKey />
+          </View>
           {heat.length === 0 ? (
             <Caption style={{ marginTop: spacing.md }}>No completed sets this week.</Caption>
           ) : (
@@ -222,16 +148,21 @@ export const HomeScreen = observer(function HomeScreen() {
             </View>
           )}
           <HeatmapLegend colors={heatScale} />
-          <Pressable
-            onPress={() => setInfoOpen(true)}
-            accessibilityRole="button"
-            hitSlop={8}
-            style={{ alignSelf: 'flex-end', marginTop: spacing.md }}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginTop: spacing.md,
+            }}
           >
-            <Text style={{ color: palette.accent, fontSize: fontSize.sm, fontWeight: '700' }}>
-              More info ›
-            </Text>
-          </Pressable>
+            <Caption>{weekYear(selectedWeekStart)}</Caption>
+            <Pressable onPress={() => setInfoOpen(true)} accessibilityRole="button" hitSlop={8}>
+              <Text style={{ color: palette.accent, fontSize: fontSize.sm, fontWeight: '700' }}>
+                More info ›
+              </Text>
+            </Pressable>
+          </View>
           <HeatmapInfoModal visible={infoOpen} colors={heatScale} onClose={() => setInfoOpen(false)} />
           <WeekCalendarSheet
             visible={calendarOpen}
@@ -245,56 +176,12 @@ export const HomeScreen = observer(function HomeScreen() {
           />
         </Card>
 
-        <Row style={{ marginTop: spacing.xl, justifyContent: 'space-between' }}>
-          <H2>Recent workouts</H2>
-          <Text
-            onPress={() => navigation.navigate('History')}
-            accessibilityRole="button"
-            style={{ color: palette.accent, fontSize: fontSize.sm, fontWeight: '700' }}
-          >
-            See all
-          </Text>
-        </Row>
-
-        {workouts.length === 0 ? (
-          <Card style={{ marginTop: spacing.md }}>
-            <Body muted>
-              Nothing logged yet. Start an empty workout and add exercises as you go — or
-              build a routine first if you already know the plan.
-            </Body>
-          </Card>
-        ) : (
-          workouts.slice(0, 5).map((w) => (
-            <Card
-              key={w.id}
-              style={{ marginTop: spacing.md }}
-              onPress={() => navigation.navigate('WorkoutDetail', { workoutId: w.id })}
-              accessibilityLabel={w.name}
-            >
-              <Row style={{ justifyContent: 'space-between' }}>
-                <View style={{ flex: 1 }}>
-                  <H2>{w.name}</H2>
-                  <Caption style={{ marginTop: 2 }}>
-                    {new Date(w.startedAt).toLocaleDateString(undefined, {
-                      weekday: 'short',
-                      day: 'numeric',
-                      month: 'short',
-                    })}
-                    {' · '}
-                    {formatDurationCompact(w.durationSec ?? 0)}
-                    {' · '}
-                    {w.totalSets} sets
-                  </Caption>
-                </View>
-                {w.prCount > 0 ? (
-                  <Text style={{ color: palette.success, fontSize: fontSize.md }}>
-                    🏆 {w.prCount}
-                  </Text>
-                ) : null}
-              </Row>
-            </Card>
-          ))
-        )}
+        <Card style={{ marginTop: spacing.md }}>
+          <H2>Consistency</H2>
+          <View style={{ marginTop: spacing.md }}>
+            <CalendarHeatmap timestamps={dates} weekStart={weekStart} />
+          </View>
+        </Card>
       </ScrollView>
     </SafeAreaView>
   );
@@ -307,43 +194,33 @@ function greeting(): string {
   return 'Good evening.';
 }
 
-function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  const palette = usePalette();
-  return (
-    <View>
-      <Caption>{label}</Caption>
-      <Text
-        style={{
-          color: palette.text,
-          fontSize: fontSize.lg,
-          fontWeight: '800',
-          fontVariant: ['tabular-nums'],
-        }}
-      >
-        {value}
-      </Text>
-      {hint !== undefined ? <Caption>{hint}</Caption> : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  track: { height: 10, borderRadius: 5, marginTop: spacing.md, overflow: 'hidden' },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
   weekNav: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: radius.pill,
+    overflow: 'hidden',
   },
-  weekNavSide: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
+  weekNavChevron: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  weekNavArrow: { fontSize: fontSize.md, fontWeight: '700', lineHeight: fontSize.md + 2 },
-  weekNavLabel: {
-    fontSize: fontSize.sm,
-    fontWeight: '700',
+  weekNavArrow: { fontSize: fontSize.lg, fontWeight: '700', lineHeight: fontSize.lg + 2 },
+  weekNavLabelWrap: {
     paddingHorizontal: spacing.xs,
+  },
+  weekNavLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: '700',
   },
 });
