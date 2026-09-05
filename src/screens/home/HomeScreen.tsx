@@ -7,16 +7,20 @@ import { BodyMap } from '@/components/BodyMap';
 import { CalendarHeatmap } from '@/components/CalendarHeatmap';
 import { HeatmapInfoModal } from '@/components/HeatmapInfoModal';
 import { HeatmapLegend } from '@/components/HeatmapLegend';
+import { RecoveryInfoModal } from '@/components/RecoveryInfoModal';
+import { RecoveryLegend } from '@/components/RecoveryLegend';
 import { WeekCalendarSheet } from '@/components/WeekCalendarSheet';
 import { Body, Button, Caption, Card, H1, H2 } from '@/components/ui';
 import { buildHeatmap } from '@/domain/muscleMap';
 import { formatWeekSpan, startOfLocalWeek, weekYear, WEEK_MS } from '@/domain/streak';
 import { formatDurationCompact } from '@/domain/units';
 import { useWorkoutHistory } from '@/hooks/useHistory';
+import { useMuscleRecovery } from '@/hooks/useMuscleRecovery';
 import { useMuscleWeek } from '@/hooks/useMuscleWeek';
 import { useActiveWorkout, useSettings } from '@/stores/RootStore';
 import { usePalette } from '@/theme/ThemeProvider';
 import { buildBodyHeatScale } from '@/theme/heatScale';
+import { buildRecoveryScale } from '@/theme/recoveryScale';
 import { fontSize, radius, spacing } from '@/theme/tokens';
 
 /**
@@ -35,7 +39,10 @@ export const HomeScreen = observer(function HomeScreen() {
     startOfLocalWeek(Date.now(), weekStart),
   );
   const { setsPerMuscle, reload: reloadMuscle } = useMuscleWeek(selectedWeekStart);
+  const { parts: recoveryParts, hasHistory: recoveryHasHistory, reload: reloadRecovery } =
+    useMuscleRecovery();
   const [infoOpen, setInfoOpen] = useState(false);
+  const [recoveryInfoOpen, setRecoveryInfoOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   const thisWeekStart = startOfLocalWeek(Date.now(), weekStart);
@@ -48,13 +55,14 @@ export const HomeScreen = observer(function HomeScreen() {
     });
   };
 
-  // The heatmap must always reflect edits made on other screens (history edit,
-  // replace/remove exercise). Re-read it every time this tab regains focus, so
-  // no DB-change-listener race or miss can leave it stale.
+  // The heatmap and recovery map must always reflect edits made on other
+  // screens (history edit, replace/remove exercise). Re-read them every time
+  // this tab regains focus, so no DB-change-listener race can leave them stale.
   useFocusEffect(
     useCallback(() => {
       reloadMuscle();
-    }, [reloadMuscle]),
+      reloadRecovery();
+    }, [reloadMuscle, reloadRecovery]),
   );
 
   const dates = useMemo(
@@ -63,6 +71,7 @@ export const HomeScreen = observer(function HomeScreen() {
   );
 
   const heatScale = useMemo(() => buildBodyHeatScale(palette), [palette]);
+  const recoveryScale = useMemo(() => buildRecoveryScale(palette), [palette]);
 
   const heat = useMemo(
     () => buildHeatmap(setsPerMuscle, heatScale.length),
@@ -173,6 +182,53 @@ export const HomeScreen = observer(function HomeScreen() {
               setCalendarOpen(false);
             }}
             onClose={() => setCalendarOpen(false)}
+          />
+        </Card>
+
+        <Card style={{ marginTop: spacing.md }}>
+          <H2>Muscle recovery</H2>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'center',
+              gap: spacing.md,
+              marginTop: spacing.md,
+            }}
+          >
+            <BodyMap parts={recoveryParts} side="front" scale={0.75} colors={recoveryScale} />
+            <BodyMap parts={recoveryParts} side="back" scale={0.75} colors={recoveryScale} />
+          </View>
+          {!recoveryHasHistory ? (
+            <Caption style={{ marginTop: spacing.md, textAlign: 'center' }}>
+              No completed sets in the last 7 days.
+            </Caption>
+          ) : null}
+          <RecoveryLegend colors={recoveryScale} />
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginTop: spacing.md,
+            }}
+          >
+            <Caption>Based on the last 7 days</Caption>
+            <Pressable
+              onPress={() => setRecoveryInfoOpen(true)}
+              accessibilityRole="button"
+              hitSlop={8}
+            >
+              <Text style={{ color: palette.accent, fontSize: fontSize.sm, fontWeight: '700' }}>
+                More info ›
+              </Text>
+            </Pressable>
+          </View>
+          <RecoveryInfoModal
+            visible={recoveryInfoOpen}
+            colors={recoveryScale}
+            birthYear={settings.values.birthYear}
+            sex={settings.values.sex}
+            onClose={() => setRecoveryInfoOpen(false)}
           />
         </Card>
 

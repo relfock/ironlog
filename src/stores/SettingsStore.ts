@@ -14,7 +14,7 @@ import { db } from '@/db/client';
 import { settings as settingsTable } from '@/db/schema';
 import type { OneRepMaxFormula } from '@/domain/oneRepMax';
 import type { WeekStart } from '@/domain/streak';
-import type { DistanceUnit, WeightUnit } from '@/domain/types';
+import type { DistanceUnit, Sex, WeightUnit } from '@/domain/types';
 import { DEFAULT_KG_PLATES, DEFAULT_LB_PLATES } from '@/domain/plateCalculator';
 
 export type SoundLevel = 'off' | 'low' | 'normal' | 'high';
@@ -26,6 +26,12 @@ export interface AppSettings {
   distanceUnit: DistanceUnit;
   /** Canonical kg. Needed for bodyweight-exercise volume. */
   bodyweightKg: number | null;
+
+  // --- Body profile (used by the recovery map age/sex modifiers) ---
+  /** Year of birth; null = not set. */
+  birthYear: number | null;
+  /** Biological sex; null = not set. */
+  sex: Sex | null;
 
   // --- Hevy's twelve workout preferences ---
   /** 1. Sounds */
@@ -67,6 +73,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   weightUnit: 'kg',
   distanceUnit: 'km',
   bodyweightKg: null,
+  birthYear: null,
+  sex: null,
   soundLevel: 'normal',
   prSoundLevel: 'normal',
   defaultRestSec: 90,

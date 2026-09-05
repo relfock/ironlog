@@ -39,6 +39,15 @@ export interface Palette {
   /** Heatmap orange: the "Low" (1–4 sets/week) zone. */
   readonly bodyHeatLow: string;
   /**
+   * Recovery-map colours, level by level (1 = no data, 5 = recovered). The
+   * traffic-light ramp is deliberately distinct from the heatmap palette.
+   */
+  readonly bodyRecoveryData: string;
+  readonly bodyRecoveryFatigued: string;
+  readonly bodyRecoveryRecovering: string;
+  readonly bodyRecoveryNearly: string;
+  readonly bodyRecoveryRecovered: string;
+  /**
    * The muscle-worked artwork draws a silhouette behind the muscles and a pair
    * of shorts over it. Both are fixed in the source files (#343542 and
    * #b2b4e0) and carry no meaning, so they are themed as neutrals — but the
@@ -73,6 +82,11 @@ export const lightPalette: Palette = {
   bodyHeatOptimal: '#D93A3A',
   bodyHeatModerate: '#E64980',
   bodyHeatLow: '#F08C00',
+  bodyRecoveryData: '#B0B6BE',
+  bodyRecoveryFatigued: '#D93A3A',
+  bodyRecoveryRecovering: '#F08C00',
+  bodyRecoveryNearly: '#C9A400',
+  bodyRecoveryRecovered: '#1E9E5A',
   bodySilhouette: '#B2BAC5',
   bodyShorts: '#98A0B8',
   setTypeWarmup: '#C8820A',
@@ -101,6 +115,11 @@ export const darkPalette: Palette = {
   bodyHeatOptimal: '#FF6B6B',
   bodyHeatModerate: '#F783AC',
   bodyHeatLow: '#FFB020',
+  bodyRecoveryData: '#4A5560',
+  bodyRecoveryFatigued: '#FF6B6B',
+  bodyRecoveryRecovering: '#FFB020',
+  bodyRecoveryNearly: '#F5C518',
+  bodyRecoveryRecovered: '#3FCB7F',
   bodySilhouette: '#20262E',
   bodyShorts: '#3A4250',
   setTypeWarmup: '#F0B429',

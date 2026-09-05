@@ -6,7 +6,7 @@ import { PromptModal } from '@/components/PromptModal';
 import { Caption } from '@/components/ui';
 import { SegmentedControl, SettingsRow, SettingsSection } from '@/components/settings';
 import { formatWeight, fromKg, toKg } from '@/domain/units';
-import type { DistanceUnit, WeightUnit } from '@/domain/types';
+import type { DistanceUnit, Sex, WeightUnit } from '@/domain/types';
 import type { WeekStart } from '@/domain/streak';
 import { useSettings } from '@/stores/RootStore';
 import { spacing } from '@/theme/tokens';
@@ -15,7 +15,25 @@ export const SettingsScreen = observer(function SettingsScreen() {
   const navigation = useNavigation();
   const settings = useSettings();
   const v = settings.values;
-  const [editing, setEditing] = useState<'bodyweight' | 'goal' | 'bar' | null>(null);
+  const [editing, setEditing] = useState<
+    'bodyweight' | 'goal' | 'bar' | 'birthYear' | null
+  >(null);
+
+  const chooseSex = () => {
+    const current = v.sex;
+    Alert.alert('Sex', 'Used to calibrate the muscle recovery map.', [
+      {
+        text: current === 'male' ? 'Male ✓' : 'Male',
+        onPress: () => void settings.set('sex', 'male' as Sex),
+      },
+      {
+        text: current === 'female' ? 'Female ✓' : 'Female',
+        onPress: () => void settings.set('sex', 'female' as Sex),
+      },
+      { text: 'Not set', onPress: () => void settings.set('sex', null) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
 
   const chooseFormula = () => {
     Alert.alert(
@@ -70,6 +88,18 @@ export const SettingsScreen = observer(function SettingsScreen() {
                 : `${formatWeight(v.bodyweightKg, v.weightUnit)} ${v.weightUnit}`
             }
             onPress={() => setEditing('bodyweight')}
+          />
+          <SettingsRow
+            label="Age"
+            description="Calibrates recovery times (Damas et al.)"
+            value={v.birthYear === null ? 'Not set' : `${currentAge(v.birthYear)}`}
+            onPress={() => setEditing('birthYear')}
+          />
+          <SettingsRow
+            label="Sex"
+            description="Women recover ~15% faster at equal effort"
+            value={v.sex === null ? 'Not set' : v.sex === 'female' ? 'Female' : 'Male'}
+            onPress={chooseSex}
           />
         </SettingsSection>
 
@@ -161,9 +191,29 @@ export const SettingsScreen = observer(function SettingsScreen() {
           void settings.set('barWeight', n);
         }}
       />
+
+      <PromptModal
+        visible={editing === 'birthYear'}
+        title="Year of birth"
+        placeholder="e.g. 1994"
+        initialValue={v.birthYear === null ? '' : String(v.birthYear)}
+        onCancel={() => setEditing(null)}
+        onSubmit={(text) => {
+          setEditing(null);
+          const n = Math.round(Number(text));
+          const year = new Date().getFullYear();
+          if (!Number.isFinite(n) || n < 1900 || n > year) return;
+          void settings.set('birthYear', n);
+        }}
+      />
     </>
   );
 });
+
+function currentAge(birthYear: number): number {
+  const a = new Date().getFullYear() - birthYear;
+  return Math.max(0, a);
+}
 
 const styles = StyleSheet.create({
   scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },

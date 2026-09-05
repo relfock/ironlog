@@ -24,6 +24,9 @@ export type SetType = 'normal' | 'warmup' | 'drop' | 'failure';
 export type WeightUnit = 'kg' | 'lb';
 export type DistanceUnit = 'km' | 'mi';
 
+/** Biological sex used by the recovery model; null = unknown/not set. */
+export type Sex = 'male' | 'female';
+
 /**
  * Our muscle taxonomy. Finer-grained than the body map can render, because
  * exercise metadata is worth keeping precise even when the visual has to
