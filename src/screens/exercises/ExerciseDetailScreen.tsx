@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 import { ExerciseVideo } from '@/components/ExerciseVideo';
 import { MuscleMap } from '@/components/MuscleMap';
+import { SpanSheet } from '@/components/SpanSheet';
 import { LineChartCard } from '@/components/charts/LineChartCard';
 import { PromptModal } from '@/components/PromptModal';
 import { Body, Button, Caption, Card, H1, H2, Pill, Row } from '@/components/ui';
@@ -20,7 +22,9 @@ import { exerciseBySlug } from '@/data/exercises';
 import {
   deleteExercise,
   getRecordBook,
+  getRecordBookDetail,
   updateExercise,
+  type RecordBookDetail,
 } from '@/db/repositories/exercises';
 import { ALL_PR_KINDS, PR_KIND_LABELS, type PrKind } from '@/domain/prDetection';
 import { MUSCLE_LABELS } from '@/domain/muscleMap';
@@ -34,12 +38,22 @@ import { usePalette } from '@/theme/ThemeProvider';
 import { fontSize, radius, spacing } from '@/theme/tokens';
 
 type Metric = 'weight' | 'volume' | 'reps' | 'est1rm';
+type Span = '1M' | '2M' | '3M' | '6M' | '1Y' | 'ALL';
 
 const METRICS: { key: Metric; label: string }[] = [
   { key: 'weight', label: 'Heaviest set' },
   { key: 'est1rm', label: 'Est. 1RM' },
   { key: 'volume', label: 'Session volume' },
   { key: 'reps', label: 'Total reps' },
+];
+
+const SPANS: { key: Span; label: string; ms: number | null }[] = [
+  { key: '1M', label: '1M', ms: 30 * 24 * 60 * 60 * 1000 },
+  { key: '2M', label: '2M', ms: 60 * 24 * 60 * 60 * 1000 },
+  { key: '3M', label: '3M', ms: 90 * 24 * 60 * 60 * 1000 },
+  { key: '6M', label: '6M', ms: 182 * 24 * 60 * 60 * 1000 },
+  { key: '1Y', label: '1Y', ms: 365 * 24 * 60 * 60 * 1000 },
+  { key: 'ALL', label: 'All', ms: null },
 ];
 
 /**
@@ -57,7 +71,10 @@ export const ExerciseDetailScreen = observer(function ExerciseDetailScreen() {
   const exercise = useExercise(route.params.exerciseId);
   const { points, loading } = useExerciseProgress(route.params.exerciseId);
   const [records, setRecords] = useState<Map<PrKind, number>>(new Map());
+  const [recordDetails, setRecordDetails] = useState<RecordBookDetail[]>([]);
   const [metric, setMetric] = useState<Metric>('weight');
+  const [span, setSpan] = useState<Span>('6M');
+  const [spanSheetOpen, setSpanSheetOpen] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
 
   const unit = settings.values.weightUnit;
@@ -65,6 +82,7 @@ export const ExerciseDetailScreen = observer(function ExerciseDetailScreen() {
 
   const reloadRecords = useCallback(() => {
     void getRecordBook(route.params.exerciseId).then(setRecords);
+    void getRecordBookDetail(route.params.exerciseId).then(setRecordDetails);
   }, [route.params.exerciseId]);
 
   useEffect(reloadRecords, [reloadRecords]);
@@ -106,6 +124,12 @@ export const ExerciseDetailScreen = observer(function ExerciseDetailScreen() {
       .filter((p): p is { x: number; y: number } => p !== null);
   }, [points, metric, unit, formula]);
 
+  const filteredSeries = useMemo(() => {
+    if (span === 'ALL') return series;
+    const cutoff = Date.now() - SPANS.find((s) => s.key === span)!.ms!;
+    return series.filter((p) => p.x >= cutoff);
+  }, [series, span]);
+
   if (exercise === null) {
     return (
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -132,6 +156,8 @@ export const ExerciseDetailScreen = observer(function ExerciseDetailScreen() {
     );
   };
 
+  const chooseSpan = () => setSpanSheetOpen(true);
+
   const videoWidth = windowWidth - CARD_INSET;
 
   return (
@@ -151,6 +177,21 @@ export const ExerciseDetailScreen = observer(function ExerciseDetailScreen() {
         {entry !== null ? (
           <Card style={styles.videoCard}>
             <ExerciseVideo slug={entry.slug} width={videoWidth} autoPlay loop />
+            {entry.url.length > 0 ? (
+              <Pressable
+                onPress={() => void Linking.openURL(entry.url).catch(() => {})}
+                accessibilityRole="link"
+                accessibilityLabel={`Open ${entry.url}`}
+                style={styles.sourceLink}
+              >
+                <Text
+                  style={[styles.sourceLinkText, { color: palette.accent }]}
+                  numberOfLines={1}
+                >
+                  View source ›
+                </Text>
+              </Pressable>
+            ) : null}
           </Card>
         ) : null}
 
@@ -221,22 +262,61 @@ export const ExerciseDetailScreen = observer(function ExerciseDetailScreen() {
               No records yet — complete a set of this exercise.
             </Caption>
           ) : (
-            ALL_PR_KINDS.filter((k) => records.has(k)).map((k) => (
-              <Row
-                key={k}
-                style={{ justifyContent: 'space-between', paddingVertical: 4 }}
-              >
-                <Body muted>{PR_KIND_LABELS[k]}</Body>
-                <Body style={{ fontWeight: '700', fontVariant: ['tabular-nums'] }}>
-                  {formatRecord(k, records.get(k)!, unit)}
-                </Body>
-              </Row>
-            ))
+            ALL_PR_KINDS.filter((k) => records.has(k)).map((k) => {
+              const detail = recordDetails.find((d) => d.kind === k);
+              const tappable = detail?.workoutId != null;
+              return (
+                <Pressable
+                  key={k}
+                  onPress={() => {
+                    if (tappable) {
+                      navigation.navigate('WorkoutDetail', {
+                        workoutId: detail!.workoutId!,
+                        highlightExerciseId: route.params.exerciseId,
+                      });
+                    }
+                  }}
+                  disabled={!tappable}
+                  style={{
+                    justifyContent: 'space-between',
+                    paddingVertical: 4,
+                    opacity: tappable ? 1 : 0.6,
+                  }}
+                >
+                  <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Body muted>{PR_KIND_LABELS[k]}</Body>
+                    <Row gap={spacing.xs} style={{ alignItems: 'center' }}>
+                      <Text
+                        style={{
+                          color: tappable ? palette.accent : palette.textMuted,
+                          fontWeight: '700',
+                          fontVariant: ['tabular-nums'],
+                          textDecorationLine: tappable ? 'underline' : undefined,
+                        }}
+                      >
+                        {formatRecord(k, records.get(k)!, unit)}
+                      </Text>
+                      {tappable ? (
+                        <Text style={{ color: palette.accent, fontWeight: '700' }}>›</Text>
+                      ) : null}
+                    </Row>
+                  </Row>
+                </Pressable>
+              );
+            })
           )}
         </Card>
 
         <Card style={{ marginTop: spacing.md }}>
-          <Row gap={spacing.xs} style={{ flexWrap: 'wrap', marginBottom: spacing.sm }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{
+              gap: spacing.sm,
+              paddingRight: spacing.md,
+              marginBottom: spacing.sm,
+            }}
+          >
             {METRICS.map((m) => {
               const on = metric === m.key;
               return (
@@ -265,18 +345,31 @@ export const ExerciseDetailScreen = observer(function ExerciseDetailScreen() {
                 </Pressable>
               );
             })}
-          </Row>
+          </ScrollView>
 
-          <LineChartCard
-            title="Progression"
-            subtitle={
-              loading
-                ? 'Loading…'
-                : `${points.length} session${points.length === 1 ? '' : 's'} logged`
-            }
-            data={series}
-            formatY={formatAxisTick}
-          />
+          <View style={{ position: 'relative' }}>
+            <LineChartCard
+              title="Progression"
+              subtitle={
+                loading
+                  ? 'Loading…'
+                  : `${filteredSeries.length} point${filteredSeries.length === 1 ? '' : 's'} · ${points.length} session${points.length === 1 ? '' : 's'} logged`
+              }
+              data={filteredSeries}
+              formatY={formatAxisTick}
+            />
+            <Pressable
+              onPress={chooseSpan}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: false }}
+              style={[styles.chip, styles.spanChip]}
+            >
+              <Text style={{ color: palette.textMuted, fontSize: fontSize.sm, fontWeight: '600' }}>
+                {SPANS.find((s) => s.key === span)!.label}
+              </Text>
+              <Text style={{ color: palette.textMuted, fontSize: fontSize.sm, fontWeight: '600' }}>▾</Text>
+            </Pressable>
+          </View>
         </Card>
 
         <Card style={{ marginTop: spacing.md }}>
@@ -339,6 +432,17 @@ export const ExerciseDetailScreen = observer(function ExerciseDetailScreen() {
           });
         }}
       />
+
+      <SpanSheet
+        visible={spanSheetOpen}
+        options={SPANS.map((s) => ({ key: s.key, label: s.label }))}
+        current={span}
+        onSelect={(k) => {
+          setSpanSheetOpen(false);
+          setSpan(k);
+        }}
+        onClose={() => setSpanSheetOpen(false)}
+      />
     </>
   );
 });
@@ -359,6 +463,8 @@ function formatRecord(kind: PrKind, value: number, unit: 'kg' | 'lb'): string {
       return `${formatWeight(value, unit)} ${unit}`;
     case 'best_set_volume':
       return `${formatWeight(value, unit)} ${unit}`;
+    case 'best_session_volume':
+      return `${formatWeight(value, unit)} ${unit} volume`;
     case 'max_reps':
       return `${value} reps`;
     case 'max_duration':
@@ -375,6 +481,16 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     padding: 0,
     overflow: 'hidden',
+  },
+  sourceLink: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    alignSelf: 'flex-start',
+  },
+  sourceLinkText: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   legend: { justifyContent: 'center', marginTop: spacing.md },
   swatch: { width: 12, height: 12, borderRadius: radius.sm },
@@ -396,5 +512,13 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs + 2,
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
+  },
+  spanChip: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
 });

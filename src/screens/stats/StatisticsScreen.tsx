@@ -2,9 +2,8 @@ import { observer } from 'mobx-react-lite';
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BarChartCard } from '@/components/charts/BarChartCard';
-import { BodyMap } from '@/components/BodyMap';
 import { Body, Caption, Card, EmptyState, H1, H2, Row } from '@/components/ui';
-import { MUSCLE_LABELS, buildHeatmap } from '@/domain/muscleMap';
+import { MUSCLE_LABELS } from '@/domain/muscleMap';
 import { formatAxisTick, formatWeight, fromKg } from '@/domain/units';
 import { useStatistics } from '@/hooks/useStatistics';
 import { useSettings } from '@/stores/RootStore';
@@ -61,11 +60,6 @@ export const StatisticsScreen = observer(function StatisticsScreen() {
       label: MUSCLE_LABELS[e.muscle],
     }));
   }, [muscle.setsPerMuscle]);
-
-  const heatmapParts = useMemo(
-    () => buildHeatmap(muscle.setsPerMuscle, palette.heatRamp.length),
-    [muscle.setsPerMuscle, palette.heatRamp.length],
-  );
 
   const topMuscles = useMemo(
     () =>
@@ -125,18 +119,6 @@ export const StatisticsScreen = observer(function StatisticsScreen() {
           data={setsPerWeekBars}
           formatY={formatAxisTick}
         />
-      </Card>
-
-      <Card style={{ marginTop: spacing.md }}>
-        <H2>Muscle heatmap</H2>
-        <Caption>Where your volume has gone. Darker means more sets.</Caption>
-        {heatmapParts.length === 0 ? (
-          <Caption style={{ marginTop: spacing.md }}>No completed sets yet.</Caption>
-        ) : (
-          <View style={{ alignItems: 'center', marginTop: spacing.md }}>
-            <BodyMap parts={heatmapParts} allowFlip scale={0.9} />
-          </View>
-        )}
       </Card>
 
       <Card style={{ marginTop: spacing.md }}>

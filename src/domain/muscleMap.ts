@@ -14,6 +14,7 @@
  * dropping highlights.
  */
 import type { Muscle } from './types';
+import { weeklySetsToHeatLevel } from './trainingVolume';
 
 /** The 23 slugs `react-native-body-highlighter@3.x` can address. */
 export type BodySlug =
@@ -188,31 +189,28 @@ export function partsVisibleOn(
 }
 
 /**
- * For the muscle heatmap: turn per-muscle set counts into highlight intensities
- * bucketed into `bucketCount` levels, where bucket 1 is the hottest.
+ * For the muscle heatmap: turn per-muscle AVERAGE WEEKLY SETS into highlight
+ * intensities using the fixed literature-based zones in `trainingVolume.ts`
+ * (low 1–4, moderate 5–9, optimal 10–20, very high 21+). Average, not
+ * relative: a chest week always lights chest the same way no matter how much
+ * the rest of the body is trained. Muscles that share a slug (lats + upper
+ * back) are summed before levelling.
+ *
+ * Level 1 is the hottest colour in the ramp, level `levelCount` the coolest.
  */
 export function buildHeatmap(
-  setsPerMuscle: ReadonlyMap<Muscle, number>,
-  bucketCount = 4,
+  weeklySets: ReadonlyMap<Muscle, number>,
+  levelCount = 4,
 ): HighlightedPart[] {
   const bySlug = new Map<BodySlug, number>();
-  for (const [muscle, sets] of setsPerMuscle) {
+  for (const [muscle, sets] of weeklySets) {
     const slug = muscleToSlug(muscle);
     if (!slug || sets <= 0) continue;
     bySlug.set(slug, (bySlug.get(slug) ?? 0) + sets);
   }
-  if (bySlug.size === 0) return [];
 
-  const max = Math.max(...bySlug.values());
-  if (max <= 0) return [];
-
-  return [...bySlug].map(([slug, sets]) => {
-    // ratio 1.0 -> bucket 1 (hottest); ratio near 0 -> bucket `bucketCount`.
-    const ratio = sets / max;
-    const bucket = Math.min(
-      bucketCount,
-      Math.max(1, bucketCount + 1 - Math.ceil(ratio * bucketCount)),
-    );
-    return { slug, intensity: bucket };
-  });
+  return [...bySlug].map(([slug, sets]) => ({
+    slug,
+    intensity: Math.min(levelCount, Math.max(1, weeklySetsToHeatLevel(sets))),
+  }));
 }

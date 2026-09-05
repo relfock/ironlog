@@ -104,6 +104,14 @@ describe('formatting', () => {
     expect(trimNumber(0, 2)).toBe('0');
   });
 
+  it('preserves whole-number trailing zeros', () => {
+    expect(trimNumber(10, 0)).toBe('10');
+    expect(trimNumber(210, 0)).toBe('210');
+    expect(trimNumber(100, 0)).toBe('100');
+    expect(trimNumber(0, 0)).toBe('0');
+    expect(trimNumber(2.5, 2)).toBe('2.5');
+  });
+
   it('formats durations as m:ss and h:mm:ss', () => {
     expect(formatDuration(9)).toBe('0:09');
     expect(formatDuration(65)).toBe('1:05');

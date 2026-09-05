@@ -1,13 +1,13 @@
 import { observer } from 'mobx-react-lite';
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { DurationField } from './DurationField';
 import { NumberField } from './NumberField';
 import { SetTypeBadge } from './SetTypeBadge';
+import { SetTypeSheet } from './SetTypeSheet';
 import type { WorkoutExerciseData, WorkoutSetData } from '@/db/repositories/workouts';
-import { ALL_SET_TYPES, hasDistance, hasDuration, hasReps, hasWeight, supportsRpe } from '@/domain/types';
-import type { SetType } from '@/domain/types';
+import { hasDistance, hasDuration, hasReps, hasWeight, supportsRpe } from '@/domain/types';
 import { formatDuration, fromKg, metresToDistance, toKg, distanceToMetres } from '@/domain/units';
 import { useActiveWorkout, useSettings } from '@/stores/RootStore';
 import { usePalette } from '@/theme/ThemeProvider';
@@ -48,6 +48,7 @@ export const SetRow = observer(function SetRow({
   const showDuration = hasDuration(tracking);
   const showDistance = hasDistance(tracking);
   const showRpe = rpeEnabled && supportsRpe(tracking);
+  const [typeSheetOpen, setTypeSheetOpen] = useState(false);
 
   const toggle = useCallback(() => {
     if (hapticsEnabled) {
@@ -56,20 +57,7 @@ export const SetRow = observer(function SetRow({
     void active.toggleSet(set.id);
   }, [active, set.id, hapticsEnabled]);
 
-  const chooseSetType = useCallback(() => {
-    Alert.alert(
-      'Set type',
-      undefined,
-      [
-        ...ALL_SET_TYPES.map((t) => ({
-          text: setTypeName(t),
-          onPress: () => void active.setSetType(set.id, t),
-        })),
-        { text: 'Cancel', style: 'cancel' as const },
-      ],
-      { cancelable: true },
-    );
-  }, [active, set.id]);
+  const chooseSetType = useCallback(() => setTypeSheetOpen(true), []);
 
   const confirmDelete = useCallback(() => {
     Alert.alert('Remove set?', 'This set will be deleted.', [
@@ -224,22 +212,23 @@ export const SetRow = observer(function SetRow({
           <Text style={{ fontSize: fontSize.xs }}>🏆</Text>
         </View>
       ) : null}
+
+      <SetTypeSheet
+        visible={typeSheetOpen}
+        current={set.setType}
+        onSelect={(t) => {
+          setTypeSheetOpen(false);
+          void active.setSetType(set.id, t);
+        }}
+        onRemove={() => {
+          setTypeSheetOpen(false);
+          confirmDelete();
+        }}
+        onClose={() => setTypeSheetOpen(false)}
+      />
     </Pressable>
   );
 });
-
-function setTypeName(t: SetType): string {
-  switch (t) {
-    case 'normal':
-      return 'Normal set';
-    case 'warmup':
-      return 'Warm-up set';
-    case 'drop':
-      return 'Drop set';
-    case 'failure':
-      return 'Failure set';
-  }
-}
 
 /** Ghost text summarising the matching set from the last session. */
 function describePrevious(

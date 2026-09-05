@@ -63,6 +63,8 @@ function formatPrValue(
       return `${formatWeight(value, unit)} ${unit}`;
     case 'best_set_volume':
       return `${formatWeight(value, unit)} ${unit} volume`;
+    case 'best_session_volume':
+      return `${formatWeight(value, unit)} ${unit} volume`;
     case 'max_reps':
       return `${value} reps`;
     case 'max_duration':

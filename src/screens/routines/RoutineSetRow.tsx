@@ -1,16 +1,16 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { DurationField } from '@/components/DurationField';
 import { NumberField } from '@/components/NumberField';
 import { SetTypeBadge } from '@/components/SetTypeBadge';
+import { SetTypeSheet } from '@/components/SetTypeSheet';
 import {
   deleteRoutineSet,
   updateRoutineSet,
   type RoutineExerciseData,
   type RoutineSetData,
 } from '@/db/repositories/routines';
-import { ALL_SET_TYPES, hasDistance, hasDuration, hasReps, hasWeight } from '@/domain/types';
-import type { SetType } from '@/domain/types';
+import { hasDistance, hasDuration, hasReps, hasWeight } from '@/domain/types';
 import { distanceToMetres, fromKg, metresToDistance, toKg } from '@/domain/units';
 import { useSettings } from '@/stores/RootStore';
 import { usePalette } from '@/theme/ThemeProvider';
@@ -39,6 +39,8 @@ export function RoutineSetRow({
   const { weightUnit, distanceUnit } = settings.values;
   const t = re.trackingType;
 
+  const [setSheetOpen, setSetSheetOpen] = useState(false);
+
   const patch = useCallback(
     (p: Partial<RoutineSetData>) => {
       void updateRoutineSet(set.id, p).then(onChanged);
@@ -46,20 +48,7 @@ export function RoutineSetRow({
     [set.id, onChanged],
   );
 
-  const chooseType = () => {
-    Alert.alert(
-      'Set type',
-      undefined,
-      [
-        ...ALL_SET_TYPES.map((st) => ({
-          text: setTypeName(st),
-          onPress: () => patch({ setType: st }),
-        })),
-        { text: 'Cancel', style: 'cancel' as const },
-      ],
-      { cancelable: true },
-    );
-  };
+  const chooseType = () => setSetSheetOpen(true);
 
   const remove = () => {
     Alert.alert('Remove set?', undefined, [
@@ -151,21 +140,22 @@ export function RoutineSetRow({
       >
         <Text style={{ color: palette.textFaint, fontSize: fontSize.lg }}>✕</Text>
       </Pressable>
+
+      <SetTypeSheet
+        visible={setSheetOpen}
+        current={set.setType}
+        onSelect={(st) => {
+          setSetSheetOpen(false);
+          patch({ setType: st });
+        }}
+        onRemove={() => {
+          setSetSheetOpen(false);
+          remove();
+        }}
+        onClose={() => setSetSheetOpen(false)}
+      />
     </Pressable>
   );
-}
-
-function setTypeName(t: SetType): string {
-  switch (t) {
-    case 'normal':
-      return 'Normal set';
-    case 'warmup':
-      return 'Warm-up set';
-    case 'drop':
-      return 'Drop set';
-    case 'failure':
-      return 'Failure set';
-  }
 }
 
 const styles = StyleSheet.create({

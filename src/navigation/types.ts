@@ -15,9 +15,14 @@ export type RootStackParamList = {
   ExerciseDetail: { exerciseId: string };
   /** Omit exerciseId to create; pass it to edit. */
   CustomExercise: { exerciseId?: string } | undefined;
-  ExercisePicker: { mode: 'routine' | 'workout'; targetId: string };
+  ExercisePicker: {
+    mode: 'routine' | 'workout' | 'replace';
+    targetId: string;
+    replaceRoutineExerciseId?: string;
+    replaceWorkoutExerciseId?: string;
+  };
   RoutineEditor: { routineId?: string; folderId?: string };
-  WorkoutDetail: { workoutId: string };
+  WorkoutDetail: { workoutId: string; highlightExerciseId?: string };
   History: undefined;
   Statistics: undefined;
   Measurements: undefined;

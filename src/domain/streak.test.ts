@@ -2,10 +2,13 @@ import {
   calendarColumns,
   calendarHeatmap,
   dailyStreak,
+  formatWeekSpan,
   groupByWeek,
   localDayKey,
   startOfLocalDay,
+  startOfLocalMonth,
   startOfLocalWeek,
+  weeksOfMonth,
   weeklyStreak,
 } from './streak';
 
@@ -49,6 +52,38 @@ describe('local-time bucketing', () => {
     // 00:30 local is still that local day, even though it may be the previous
     // day in UTC.
     expect(localDayKey(new Date(2026, 0, 5, 0, 30).getTime())).toBe('2026-01-05');
+  });
+});
+
+describe('week-span helpers', () => {
+  it('formatWeekSpan renders the range for a Monday-start week', () => {
+    const week = startOfLocalWeek(NOW, 1);
+    expect(formatWeekSpan(week)).toBe('AUG 31 - SEP 6, 26');
+  });
+
+  it('formatWeekSpan repeats the month and uses the week-end year', () => {
+    expect(formatWeekSpan(new Date(2026, 7, 24).getTime())).toBe('AUG 24 - AUG 30, 26');
+    // Week spanning New Year: Mon 29 Dec 2025 -> Sun 4 Jan 2026.
+    expect(formatWeekSpan(new Date(2025, 11, 29).getTime())).toBe('DEC 29 - JAN 4, 26');
+  });
+
+  it('startOfLocalMonth returns local midnight on the first', () => {
+    const d = new Date(startOfLocalMonth(new Date(2026, 7, 17, 14, 30).getTime()));
+    expect(d.getDate()).toBe(1);
+    expect(d.getMonth()).toBe(7);
+    expect(d.getHours()).toBe(0);
+  });
+
+  it('weeksOfMonth covers every week row the month needs', () => {
+    // Aug 2026 starts on a Saturday, so the grid opens with Mon 27 Jul.
+    const aug = weeksOfMonth(new Date(2026, 7, 1).getTime(), 1);
+    expect(aug[0]).toBe(new Date(2026, 6, 27).getTime());
+    expect(aug[aug.length - 1]).toBe(new Date(2026, 7, 31).getTime());
+
+    // Sep 2026 starts on a Tuesday and ends on a Wednesday -> five rows.
+    const sep = weeksOfMonth(new Date(2026, 8, 1).getTime(), 1);
+    expect(sep).toHaveLength(5);
+    expect(sep[0]).toBe(new Date(2026, 7, 31).getTime());
   });
 });
 

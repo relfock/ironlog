@@ -12,6 +12,8 @@ import { fontSize, radius, spacing } from '@/theme/tokens';
 
 interface Props {
   readonly parts: readonly HighlightedPart[];
+  /** Rock the intensity ramp — default two levels for exercise highlights. */
+  readonly colors?: readonly string[];
   /** Pin the view. Omit to let the highlighted muscles choose. */
   readonly side?: BodySide;
   readonly scale?: number;
@@ -34,6 +36,7 @@ interface Props {
  */
 export function BodyMap({
   parts,
+  colors,
   side,
   scale = 1,
   gender = 'male',
@@ -55,9 +58,12 @@ export function BodyMap({
     [parts, activeSide],
   );
 
-  const colors = useMemo(
-    () => [palette.bodyPrimary, palette.bodySecondary],
-    [palette],
+  const rampColors = useMemo(
+    () =>
+      colors === undefined
+        ? [palette.bodyPrimary, palette.bodySecondary]
+        : [...colors],
+    [colors, palette],
   );
 
   const hiddenOnThisSide = parts.length - data.length;
@@ -69,7 +75,7 @@ export function BodyMap({
         side={activeSide}
         gender={gender}
         scale={scale}
-        colors={colors}
+        colors={rampColors}
         border="none"
         defaultFill={palette.bodyBase}
         {...(onPartPress

@@ -475,6 +475,22 @@ export async function updateWorkoutExercise(
   await recordChange('workout_exercises', weId, 'update');
 }
 
+/**
+ * Swap which catalogue exercise a logged workout exercise points at, keeping
+ * its position, rest, superset group and every logged set — the live-logger
+ * equivalent of `replaceRoutineExercise`.
+ */
+export async function replaceWorkoutExerciseExerciseId(
+  weId: string,
+  newExerciseId: string,
+): Promise<void> {
+  await db
+    .update(workoutExercises)
+    .set({ exerciseId: newExerciseId, updatedAt: Date.now(), dirty: true })
+    .where(eq(workoutExercises.id, weId));
+  await recordChange('workout_exercises', weId, 'update');
+}
+
 export async function updateWorkoutMeta(
   workoutId: string,
   patch: { name?: string; notes?: string | null },

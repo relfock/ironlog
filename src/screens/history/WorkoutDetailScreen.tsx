@@ -1,9 +1,15 @@
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+  type RouteProp,
+} from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MuscleMap } from '@/components/MuscleMap';
 import { NumberField } from '@/components/NumberField';
+import { ActionSheet } from '@/components/ActionSheet';
 import { PromptModal } from '@/components/PromptModal';
 import { Body, Button, Caption, Card, H1, H2, Pill, Row } from '@/components/ui';
 import { setTypeLabel } from '@/components/SetTypeBadge';
@@ -14,6 +20,7 @@ import {
   discardWorkout,
   loadWorkout,
   recomputeWorkoutTotals,
+  removeWorkoutExercise,
   updateSet,
   updateWorkoutMeta,
   type WorkoutData,
@@ -34,12 +41,33 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState<'name' | 'notes' | null>(null);
+  const [menuWeId, setMenuWeId] = useState<string | null>(null);
+  const exerciseCardRefs = useRef<Map<string, View>>(new Map());
+  const scrollRef = useRef<ScrollView>(null);
 
   const reload = useCallback(() => {
     void loadWorkout(route.params.workoutId).then(setWorkout);
   }, [route.params.workoutId]);
 
-  useEffect(reload, [reload]);
+  const highlightId = route.params.highlightExerciseId;
+
+  useEffect(() => {
+    if (highlightId === undefined || workout === null) return;
+    const timer = setTimeout(() => {
+      exerciseCardRefs.current.get(highlightId)?.measureLayout(
+        scrollRef.current as unknown as number,
+        (_x, y) => scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true }),
+        () => {},
+      );
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [highlightId, workout]);
+
+  useFocusEffect(
+    useCallback(() => {
+      reload();
+    }, [reload]),
+  );
 
   const unit = settings.values.weightUnit;
 
@@ -64,7 +92,7 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
 
   return (
     <>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
         <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <H1 style={{ flex: 1 }}>{workout.name}</H1>
           <Text
@@ -140,11 +168,25 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
           </Card>
         ) : null}
 
-        {workout.exercises.map((we) => {
+        {workout.exercises
+          .filter((we) => we.sets.some((s) => s.completed))
+          .map((we) => {
           const regions = exerciseBySlug(we.artKey)?.regions ?? null;
+          const isHighlighted = highlightId === we.exerciseId;
           let working = 0;
           return (
-            <Card key={we.id} style={{ marginTop: spacing.md }}>
+            <View
+              key={we.id}
+              ref={(v) => {
+                if (v) exerciseCardRefs.current.set(we.exerciseId, v);
+              }}
+            >
+            <Card
+              style={{
+                marginTop: spacing.md,
+                ...(isHighlighted ? { borderColor: palette.accent, borderWidth: 2 } : {}),
+              }}
+            >
               <Row style={{ alignItems: 'flex-start' }}>
                 <MuscleMap
                   regions={regions}
@@ -165,6 +207,13 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
                     <Pill label={`SUPERSET ${we.supersetGroup + 1}`} tone={palette.accent} />
                   ) : null}
                 </View>
+                <Pressable
+                  onPress={() => setMenuWeId(we.id)}
+                  hitSlop={10}
+                  accessibilityLabel="Exercise menu"
+                >
+                  <Text style={{ color: palette.textMuted, fontSize: fontSize.xl }}>⋯</Text>
+                </Pressable>
               </Row>
 
               {we.sets.filter((s) => s.completed).length === 0 ? (
@@ -279,6 +328,7 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
                   })
               )}
             </Card>
+            </View>
           );
         })}
 
@@ -333,6 +383,71 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
             navigation.navigate('RoutineEditor', { routineId: id }),
           );
         }}
+      />
+
+      <ActionSheet
+        visible={menuWeId !== null}
+        title={workout.exercises.find((we) => we.id === menuWeId)?.exerciseName}
+        onClose={() => setMenuWeId(null)}
+        actions={
+          menuWeId === null
+            ? []
+            : [
+                {
+                  key: 'replace',
+                  label: 'Replace exercise',
+                  onPress: () => {
+                    setMenuWeId(null);
+                    navigation.navigate('ExercisePicker', {
+                      mode: 'replace',
+                      targetId: workout.id,
+                      replaceWorkoutExerciseId: menuWeId,
+                    });
+                  },
+                },
+                {
+                  key: 'details',
+                  label: 'Exercise details',
+                  onPress: () => {
+                    const we = workout.exercises.find((e) => e.id === menuWeId);
+                    setMenuWeId(null);
+                    if (we !== undefined) {
+                      navigation.navigate('ExerciseDetail', { exerciseId: we.exerciseId });
+                    }
+                  },
+                },
+                {
+                  key: 'remove',
+                  label: 'Remove exercise',
+                  destructive: true,
+                  onPress: () => {
+                    const we = workout.exercises.find((e) => e.id === menuWeId);
+                    setMenuWeId(null);
+                    if (we === undefined) return;
+                    Alert.alert(
+                      'Remove exercise?',
+                      `${we.exerciseName} and its sets will be removed.`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Remove',
+                          style: 'destructive',
+                          onPress: () =>
+                            void removeWorkoutExercise(we.id)
+                              .then(() =>
+                                recomputeWorkoutTotals(
+                                  workout.id,
+                                  settings.values.countWarmupsInStats,
+                                ),
+                              )
+                              .then(reload),
+                        },
+                      ],
+                    );
+                  },
+                },
+              ]
+        }
       />
     </>
   );

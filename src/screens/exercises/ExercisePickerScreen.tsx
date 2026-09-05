@@ -6,7 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useActiveWorkout } from '@/stores/RootStore';
 import { usePalette } from '@/theme/ThemeProvider';
 import { fontSize, spacing } from '@/theme/tokens';
-import { addExerciseToRoutine, loadRoutine } from '@/db/repositories/routines';
+import { addExerciseToRoutine, loadRoutine, replaceRoutineExercise } from '@/db/repositories/routines';
+import { replaceWorkoutExerciseExerciseId } from '@/db/repositories/workouts';
 import type { RootStackParamList } from '@/navigation/types';
 import { ExerciseLibrary } from './ExerciseLibrary';
 
@@ -19,15 +20,32 @@ export const ExercisePickerScreen = observer(function ExercisePickerScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<RootStackParamList, 'ExercisePicker'>>();
   const active = useActiveWorkout();
-  const { mode, targetId } = route.params;
+  const { mode, targetId, replaceRoutineExerciseId, replaceWorkoutExerciseId } = route.params;
   const [selected, setSelected] = useState<string[]>([]);
 
-  const toggle = useCallback((id: string) => {
-    setSelected((s) => (s.includes(id) ? s.filter((v) => v !== id) : [...s, id]));
-  }, []);
+  const toggle = useCallback(
+    (id: string) => {
+      if (mode === 'replace') {
+        setSelected([id]);
+      } else {
+        setSelected((s) => (s.includes(id) ? s.filter((v) => v !== id) : [...s, id]));
+      }
+    },
+    [mode],
+  );
 
   async function commit(ids: string[]) {
-    if (mode === 'workout') {
+    if (mode === 'replace') {
+      const id = ids[0];
+      if (id === undefined) return;
+      if (replaceWorkoutExerciseId !== undefined) {
+        const isActive = active.workout?.id === targetId;
+        await replaceWorkoutExerciseExerciseId(replaceWorkoutExerciseId, id);
+        if (isActive) await active.replaceExercise(replaceWorkoutExerciseId, id);
+      } else if (replaceRoutineExerciseId !== undefined) {
+        await replaceRoutineExercise(replaceRoutineExerciseId, id);
+      }
+    } else if (mode === 'workout') {
       for (const id of ids) await active.addExercise(id);
     } else {
       const routine = await loadRoutine(targetId);
@@ -51,15 +69,21 @@ export const ExercisePickerScreen = observer(function ExercisePickerScreen() {
         >
           <Text style={[styles.headerLink, { color: palette.accent }]}>Cancel</Text>
         </Pressable>
-        <Text style={[styles.headerTitle, { color: palette.text }]}>Add Exercise</Text>
-        <Pressable
-          onPress={() => navigation.navigate('CustomExercise')}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel="Create"
-        >
-          <Text style={[styles.headerLink, { color: palette.accent }]}>Create</Text>
-        </Pressable>
+        <Text style={[styles.headerTitle, { color: palette.text }]}>
+          {mode === 'replace' ? 'Replace Exercise' : 'Add Exercise'}
+        </Text>
+        {mode !== 'replace' ? (
+          <Pressable
+            onPress={() => navigation.navigate('CustomExercise')}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Create"
+          >
+            <Text style={[styles.headerLink, { color: palette.accent }]}>Create</Text>
+          </Pressable>
+        ) : (
+          <View style={{ width: 50 }} />
+        )}
       </View>
 
       <ExerciseLibrary

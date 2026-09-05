@@ -27,6 +27,53 @@ export function startOfLocalWeek(ms: number, weekStart: WeekStart = 1): number {
   return d.getTime();
 }
 
+/** Milliseconds in a day and a week, for bucketing windows. */
+export const DAY_MS = 24 * 60 * 60 * 1000;
+export const WEEK_MS = 7 * DAY_MS;
+
+/** Local midnight at the start of the month containing `ms`. */
+export function startOfLocalMonth(ms: number): number {
+  const d = new Date(ms);
+  d.setDate(1);
+  return startOfLocalDay(d.getTime());
+}
+
+/**
+ * The week-start dates (in `weekStart` terms) of every week-grid row a month
+ * needs — the weeks that intersect the month. Months always render in 4–6 rows
+ * whatever weekday they start on.
+ */
+export function weeksOfMonth(monthStartMs: number, weekStart: WeekStart = 1): number[] {
+  const firstOfMonth = new Date(startOfLocalMonth(monthStartMs));
+  const lastOfMonth = new Date(firstOfMonth.getFullYear(), firstOfMonth.getMonth() + 1, 0);
+  const gridStart = startOfLocalWeek(firstOfMonth.getTime(), weekStart);
+  const gridEnd = startOfLocalWeek(lastOfMonth.getTime(), weekStart);
+  const out: number[] = [];
+  const cursor = new Date(gridStart);
+  while (cursor.getTime() <= gridEnd) {
+    out.push(cursor.getTime());
+    cursor.setDate(cursor.getDate() + 7);
+  }
+  return out;
+}
+
+const MONTH_ABBREV = [
+  'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+  'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+] as const;
+
+/**
+ * "AUG 30 - SEP 5, 26" — the readable label for a selected week (spanning from
+ * its Monday/Sunday to the following weekend day). The two-digit year is that
+ * of the week's last day.
+ */
+export function formatWeekSpan(weekStartMs: number): string {
+  const start = new Date(weekStartMs);
+  const end = new Date(weekStartMs + 6 * DAY_MS);
+  const shortYear = String(end.getFullYear() % 100).padStart(2, '0');
+  return `${MONTH_ABBREV[start.getMonth()]} ${start.getDate()} - ${MONTH_ABBREV[end.getMonth()]} ${end.getDate()}, ${shortYear}`;
+}
+
 /** "2026-08-31" in local time — the key used by the calendar heatmap. */
 export function localDayKey(ms: number): string {
   const d = new Date(ms);

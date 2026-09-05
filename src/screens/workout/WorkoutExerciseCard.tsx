@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import React, { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { MuscleMap } from '@/components/MuscleMap';
+import { ActionSheet } from '@/components/ActionSheet';
 import { PromptModal } from '@/components/PromptModal';
 import { SetRow } from '@/components/SetRow';
 import { Body, Caption, Pill, Row } from '@/components/ui';
@@ -32,6 +33,7 @@ export const WorkoutExerciseCard = observer(function WorkoutExerciseCard({
   const settings = useSettings();
   const navigation = useNavigation();
   const [editingNotes, setEditingNotes] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const regions = useMemo(() => exerciseBySlug(we.artKey)?.regions ?? null, [we.artKey]);
 
@@ -79,47 +81,7 @@ export const WorkoutExerciseCard = observer(function WorkoutExerciseCard({
     );
   };
 
-  const showMenu = () => {
-    const options: { text: string; style?: 'destructive' | 'cancel'; onPress?: () => void }[] = [
-      { text: 'Add set', onPress: () => void active.addSetTo(we.id) },
-    ];
-    if (settings.values.warmupCalculatorEnabled) {
-      options.push({ text: 'Add warm-up sets', onPress: () => void addWarmups() });
-    }
-    options.push({ text: 'Rest timer…', onPress: chooseRest });
-    options.push({
-      text: we.notes !== null && we.notes.length > 0 ? 'Edit note' : 'Add note',
-      onPress: () => setEditingNotes(true),
-    });
-    if (active.canSuperset(we.id)) {
-      options.push({
-        text:
-          we.supersetGroup !== null ? 'Remove from superset' : 'Superset with exercise above',
-        onPress: () => void active.toggleSuperset(we.id),
-      });
-    }
-    options.push({ text: 'Move up', onPress: () => void active.moveExercise(we.id, -1) });
-    options.push({ text: 'Move down', onPress: () => void active.moveExercise(we.id, 1) });
-    options.push({
-      text: 'Exercise details',
-      onPress: () => navigation.navigate('ExerciseDetail', { exerciseId: we.exerciseId }),
-    });
-    options.push({
-      text: 'Remove exercise',
-      style: 'destructive',
-      onPress: () =>
-        Alert.alert('Remove exercise?', `${we.exerciseName} and its sets will be removed.`, [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Remove',
-            style: 'destructive',
-            onPress: () => void active.removeExercise(we.id),
-          },
-        ]),
-    });
-    options.push({ text: 'Cancel', style: 'cancel' });
-    Alert.alert(we.exerciseName, undefined, options, { cancelable: true });
-  };
+  const showMenu = () => setMenuOpen(true);
 
   return (
     <View
@@ -197,6 +159,107 @@ export const WorkoutExerciseCard = observer(function WorkoutExerciseCard({
           setEditingNotes(false);
           void active.setExerciseNotes(we.id, text.trim() === '' ? null : text);
         }}
+      />
+
+      <ActionSheet
+        visible={menuOpen}
+        title={we.exerciseName}
+        onClose={() => setMenuOpen(false)}
+        actions={[
+          {
+            key: 'add-set',
+            label: 'Add set',
+            onPress: () => {
+              setMenuOpen(false);
+              void active.addSetTo(we.id);
+            },
+          },
+          ...(settings.values.warmupCalculatorEnabled
+            ? [
+                {
+                  key: 'add-warmups',
+                  label: 'Add warm-up sets',
+                  onPress: () => {
+                    setMenuOpen(false);
+                    void addWarmups();
+                  },
+                },
+              ]
+            : []),
+          {
+            key: 'rest',
+            label: 'Rest timer…',
+            onPress: () => {
+              setMenuOpen(false);
+              chooseRest();
+            },
+          },
+          {
+            key: 'note',
+            label: we.notes !== null && we.notes.length > 0 ? 'Edit note' : 'Add note',
+            onPress: () => {
+              setMenuOpen(false);
+              setEditingNotes(true);
+            },
+          },
+          ...(active.canSuperset(we.id)
+            ? [
+                {
+                  key: 'superset',
+                  label:
+                    we.supersetGroup !== null
+                      ? 'Remove from superset'
+                      : 'Superset with exercise above',
+                  onPress: () => {
+                    setMenuOpen(false);
+                    void active.toggleSuperset(we.id);
+                  },
+                },
+              ]
+            : []),
+          {
+            key: 'replace',
+            label: 'Replace exercise',
+            onPress: () => {
+              setMenuOpen(false);
+              navigation.navigate('ExercisePicker', {
+                mode: 'replace',
+                targetId: active.workout?.id ?? '',
+                replaceWorkoutExerciseId: we.id,
+              });
+            },
+          },
+          { key: 'up', label: 'Move up', onPress: () => { setMenuOpen(false); void active.moveExercise(we.id, -1); } },
+          { key: 'down', label: 'Move down', onPress: () => { setMenuOpen(false); void active.moveExercise(we.id, 1); } },
+          {
+            key: 'details',
+            label: 'Exercise details',
+            onPress: () => {
+              setMenuOpen(false);
+              navigation.navigate('ExerciseDetail', { exerciseId: we.exerciseId });
+            },
+          },
+          {
+            key: 'remove',
+            label: 'Remove exercise',
+            destructive: true,
+            onPress: () => {
+              setMenuOpen(false);
+              Alert.alert(
+                'Remove exercise?',
+                `${we.exerciseName} and its sets will be removed.`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Remove',
+                    style: 'destructive',
+                    onPress: () => void active.removeExercise(we.id),
+                  },
+                ],
+              );
+            },
+          },
+        ]}
       />
     </View>
   );

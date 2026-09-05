@@ -29,6 +29,7 @@ import {
   removeWorkoutExercise,
   reorderWorkoutExercises,
   reorderWorkoutSets,
+  replaceWorkoutExerciseExerciseId,
   startEmptyWorkout,
   startWorkoutFromRoutine,
   updateSet,
@@ -42,6 +43,7 @@ import {
 import { detectPrs, headlinePr, type PrCandidate, type PrKind } from '@/domain/prDetection';
 import { setVolumeKg, totalVolumeKg } from '@/domain/volume';
 import type { LoggedSet, SetType } from '@/domain/types';
+import { setTypeCountsForStats } from '@/domain/types';
 import type { SettingsStore } from './SettingsStore';
 import type { TimerStore } from './TimerStore';
 
@@ -218,6 +220,17 @@ export class ActiveWorkoutStore {
     const workout = this.workout;
     if (workout === null) return;
     await removeWorkoutExercise(weId);
+    await this.reload(workout.id);
+  }
+
+  /**
+   * Swap an already-logged exercise for another from the catalogue, keeping its
+   * position, rest timer, superset group and every logged set.
+   */
+  async replaceExercise(weId: string, exerciseId: string): Promise<void> {
+    const workout = this.workout;
+    if (workout === null) return;
+    await replaceWorkoutExerciseExerciseId(weId, exerciseId);
     await this.reload(workout.id);
   }
 
@@ -460,6 +473,29 @@ export class ActiveWorkoutStore {
       book.set(pr.kind, pr.value);
       await upsertRecord(we.exerciseId, pr.kind, pr.value, now, setId);
     }
+
+    const sessionLoggedSets = we.sets
+      .filter((s) => s.completed && setTypeCountsForStats(s.setType, this.settings.values.countWarmupsInStats))
+      .map(toLoggedSet);
+    const sessionVol = totalVolumeKg(sessionLoggedSets, {
+      trackingType: we.trackingType,
+      bodyweightKg: workout.bodyweightKg,
+      countWarmups: this.settings.values.countWarmupsInStats,
+    });
+    if (sessionVol > 0) {
+      const prevSessionVol = book.get('best_session_volume') ?? null;
+      if (prevSessionVol === null || sessionVol > prevSessionVol) {
+        const sessionPr: PrCandidate = {
+          kind: 'best_session_volume',
+          value: sessionVol,
+          previous: prevSessionVol,
+        };
+        prs.push(sessionPr);
+        book.set('best_session_volume', sessionVol);
+        await upsertRecord(we.exerciseId, 'best_session_volume', sessionVol, now, null);
+      }
+    }
+
     this.recordBooks.set(we.exerciseId, book);
 
     const headline = headlinePr(prs);

@@ -16,7 +16,8 @@ export type PrKind =
   | 'max_reps'
   | 'best_set_volume'
   | 'max_duration'
-  | 'max_distance';
+  | 'max_distance'
+  | 'best_session_volume';
 
 export const ALL_PR_KINDS: readonly PrKind[] = [
   'max_weight',
@@ -25,6 +26,7 @@ export const ALL_PR_KINDS: readonly PrKind[] = [
   'best_set_volume',
   'max_duration',
   'max_distance',
+  'best_session_volume',
 ];
 
 /** Current best value per kind. Absent key = no record yet. */
@@ -110,6 +112,7 @@ const ANNOUNCE_PRIORITY: readonly PrKind[] = [
   'max_distance',
   'max_duration',
   'max_reps',
+  'best_session_volume',
   'best_set_volume',
 ];
 
@@ -141,4 +144,5 @@ export const PR_KIND_LABELS: Record<PrKind, string> = {
   best_set_volume: 'Best set volume',
   max_duration: 'Longest duration',
   max_distance: 'Furthest distance',
+  best_session_volume: 'Best session volume',
 };

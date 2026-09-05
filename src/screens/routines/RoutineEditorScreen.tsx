@@ -1,8 +1,14 @@
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+  type RouteProp,
+} from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { MuscleMap } from '@/components/MuscleMap';
+import { ActionSheet } from '@/components/ActionSheet';
 import { PromptModal } from '@/components/PromptModal';
 import { Body, Button, Caption, Card, H1, H2, Pill, Row } from '@/components/ui';
 import { RoutineSetRow } from './RoutineSetRow';
@@ -39,6 +45,12 @@ export const RoutineEditorScreen = observer(function RoutineEditorScreen() {
   const { routine, reload } = useRoutine(routineId);
   const active = useActiveWorkout();
   const [renaming, setRenaming] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      reload();
+    }, [reload]),
+  );
 
   const start = useCallback(async () => {
     if (routineId === undefined) return;
@@ -90,6 +102,7 @@ export const RoutineEditorScreen = observer(function RoutineEditorScreen() {
               index={index}
               total={routine.exercises.length}
               allExercises={routine.exercises}
+              routineId={routine.id}
               onChanged={reload}
             />
           ))
@@ -133,16 +146,19 @@ const RoutineExerciseCard = observer(function RoutineExerciseCard({
   index,
   total,
   allExercises,
+  routineId,
   onChanged,
 }: {
   re: RoutineExerciseData;
   index: number;
   total: number;
   allExercises: readonly RoutineExerciseData[];
+  routineId: string;
   onChanged: () => void;
 }) {
   const palette = usePalette();
   const navigation = useNavigation();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const regions = useMemo(() => exerciseBySlug(re.artKey)?.regions ?? null, [re.artKey]);
 
@@ -204,32 +220,7 @@ const RoutineExerciseCard = observer(function RoutineExerciseCard({
     );
   };
 
-  const showMenu = () => {
-    Alert.alert(
-      re.exerciseName,
-      undefined,
-      [
-        { text: 'Rest timer…', onPress: chooseRest },
-        {
-          text: re.supersetGroup !== null ? 'Remove from superset' : 'Superset with above',
-          onPress: () => void toggleSuperset(),
-        },
-        { text: 'Move up', onPress: () => void move(-1) },
-        { text: 'Move down', onPress: () => void move(1) },
-        {
-          text: 'Exercise details',
-          onPress: () => navigation.navigate('ExerciseDetail', { exerciseId: re.exerciseId }),
-        },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => void removeRoutineExercise(re.id).then(onChanged),
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-      { cancelable: true },
-    );
-  };
+  const showMenu = () => setMenuOpen(true);
 
   return (
     <Card style={{ marginTop: spacing.md }}>
@@ -289,6 +280,62 @@ const RoutineExerciseCard = observer(function RoutineExerciseCard({
           + Add set
         </Text>
       </Pressable>
+
+      <ActionSheet
+        visible={menuOpen}
+        title={re.exerciseName}
+        onClose={() => setMenuOpen(false)}
+        actions={[
+          {
+            key: 'rest',
+            label: 'Rest timer…',
+            onPress: () => {
+              setMenuOpen(false);
+              chooseRest();
+            },
+          },
+          {
+            key: 'superset',
+            label:
+              re.supersetGroup !== null ? 'Remove from superset' : 'Superset with above',
+            onPress: () => {
+              setMenuOpen(false);
+              void toggleSuperset();
+            },
+          },
+          { key: 'up', label: 'Move up', onPress: () => { setMenuOpen(false); void move(-1); } },
+          { key: 'down', label: 'Move down', onPress: () => { setMenuOpen(false); void move(1); } },
+          {
+            key: 'details',
+            label: 'Exercise details',
+            onPress: () => {
+              setMenuOpen(false);
+              navigation.navigate('ExerciseDetail', { exerciseId: re.exerciseId });
+            },
+          },
+          {
+            key: 'replace',
+            label: 'Replace exercise',
+            onPress: () => {
+              setMenuOpen(false);
+              navigation.navigate('ExercisePicker', {
+                mode: 'replace',
+                targetId: routineId,
+                replaceRoutineExerciseId: re.id,
+              });
+            },
+          },
+          {
+            key: 'remove',
+            label: 'Remove',
+            destructive: true,
+            onPress: () => {
+              setMenuOpen(false);
+              void removeRoutineExercise(re.id).then(onChanged);
+            },
+          },
+        ]}
+      />
     </Card>
   );
 });

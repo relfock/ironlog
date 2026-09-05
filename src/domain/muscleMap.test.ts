@@ -104,22 +104,38 @@ describe('preferredSide', () => {
 });
 
 describe('buildHeatmap', () => {
-  it('makes the most-trained muscle the hottest bucket', () => {
+  it('maps absolute weekly sets to the fixed science-based zones', () => {
     const map = new Map<Muscle, number>([
-      ['chest', 20],
+      ['chest', 21],
       ['biceps', 10],
       ['calves', 1],
     ]);
     const heat = buildHeatmap(map, 4);
     const bySlug = new Map(heat.map((h) => [h.slug as BodySlug, h.intensity]));
-    expect(bySlug.get('chest')).toBe(1);
-    expect(bySlug.get('calves')).toBe(4);
-    expect(bySlug.get('biceps')!).toBeGreaterThan(1);
-    expect(bySlug.get('biceps')!).toBeLessThan(4);
+    expect(bySlug.get('chest')).toBe(1); // Very high (21+)
+    expect(bySlug.get('biceps')).toBe(2); // Optimal (10–20)
+    expect(bySlug.get('calves')).toBe(4); // Low (1–4)
+  });
+
+  it('is absolute: a muscle scores by its own weekly sets, not its rank', () => {
+    // Same 10 sets/week chest lands Optimal whether biceps is bigger or gone.
+    const alone = buildHeatmap(new Map<Muscle, number>([['chest', 10]]), 4);
+    const crowded = buildHeatmap(
+      new Map<Muscle, number>([
+        ['chest', 10],
+        ['biceps', 30],
+      ]),
+      4,
+    );
+    const pick = (h: { slug: string; intensity: number }[]) =>
+      new Map(h.map((x) => [x.slug, x.intensity])).get('chest');
+    expect(pick(alone)).toBe(2);
+    expect(pick(crowded)).toBe(2);
   });
 
   it('sums muscles that collapse onto the same slug', () => {
-    // All three delt heads land on "deltoids".
+    // All three delt heads land on "deltoids": 12/week is Optimal, hotter
+    // than chest's 6/week (Moderate).
     const heat = buildHeatmap(
       new Map<Muscle, number>([
         ['front_delts', 4],
@@ -129,12 +145,23 @@ describe('buildHeatmap', () => {
       ]),
     );
     const bySlug = new Map(heat.map((h) => [h.slug, h.intensity]));
-    // 12 combined delt sets beats 6 chest sets, so delts must be hotter.
-    expect(bySlug.get('deltoids')).toBe(1);
-    expect(bySlug.get('chest')!).toBeGreaterThan(1);
+    expect(bySlug.get('deltoids')).toBe(2);
+    expect(bySlug.get('chest')!).toBe(3);
   });
 
   it('returns nothing for an empty history', () => {
     expect(buildHeatmap(new Map())).toEqual([]);
+  });
+
+  it('does not emit a part for a muscle with zero sets', () => {
+    const heat = buildHeatmap(
+      new Map<Muscle, number>([
+        ['chest', 0],
+        ['biceps', 10],
+      ]),
+      4,
+    );
+    expect(heat.some((h) => h.slug === 'chest')).toBe(false);
+    expect(heat.some((h) => h.slug === 'biceps')).toBe(true);
   });
 });

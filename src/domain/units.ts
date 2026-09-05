@@ -60,7 +60,7 @@ export function formatWeight(kg: number, unit: WeightUnit): string {
 
 export function trimNumber(v: number, maxDecimals: number): string {
   const fixed = v.toFixed(maxDecimals);
-  return fixed.replace(/\.?0+$/, '');
+  return fixed.includes('.') ? fixed.replace(/0+$/, '').replace(/\.$/, '') : fixed;
 }
 
 /**

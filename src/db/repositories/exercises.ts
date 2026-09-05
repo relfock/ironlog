@@ -1,7 +1,14 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, lte, or } from 'drizzle-orm';
 import { db } from '../client';
 import { newId } from '../ids';
-import { exercises, personalRecords, type ExerciseRow } from '../schema';
+import {
+  exercises,
+  personalRecords,
+  workoutExercises,
+  workoutSets,
+  workouts,
+  type ExerciseRow,
+} from '../schema';
 import { recordChange } from './outbox';
 import type { Equipment, Muscle, TrackingType } from '@/domain/types';
 import type { PrKind } from '@/domain/prDetection';
@@ -229,4 +236,61 @@ export async function upsertRecord(
       set: { value, achievedAt, workoutSetId, updatedAt: achievedAt, dirty: true },
     });
   await recordChange('personal_records', id, 'update');
+}
+
+export interface RecordBookDetail {
+  readonly kind: PrKind;
+  readonly value: number;
+  readonly workoutSetId: string | null;
+  readonly workoutId: string | null;
+}
+
+export async function getRecordBookDetail(exerciseId: string): Promise<RecordBookDetail[]> {
+  const rows = await db
+    .select({
+      kind: personalRecords.kind,
+      value: personalRecords.value,
+      workoutSetId: personalRecords.workoutSetId,
+      achievedAt: personalRecords.achievedAt,
+      workoutExerciseId: workoutSets.workoutExerciseId,
+    })
+    .from(personalRecords)
+    .leftJoin(workoutSets, eq(personalRecords.workoutSetId, workoutSets.id))
+    .where(
+      and(eq(personalRecords.exerciseId, exerciseId), eq(personalRecords.deleted, false)),
+    );
+
+  const details: RecordBookDetail[] = [];
+  for (const row of rows) {
+    let workoutId: string | null;
+    if (row.workoutExerciseId !== null) {
+      const weRows = await db
+        .select({ workoutId: workoutExercises.workoutId })
+        .from(workoutExercises)
+        .where(eq(workoutExercises.id, row.workoutExerciseId))
+        .limit(1);
+      workoutId = weRows[0]?.workoutId ?? null;
+    } else {
+      const wRows = await db
+        .select({ id: workouts.id })
+        .from(workouts)
+        .where(
+          and(
+            or(eq(workouts.status, 'completed'), eq(workouts.status, 'in_progress')),
+            eq(workouts.deleted, false),
+            lte(workouts.startedAt, row.achievedAt),
+          ),
+        )
+        .orderBy(desc(workouts.startedAt))
+        .limit(1);
+      workoutId = wRows[0]?.id ?? null;
+    }
+    details.push({
+      kind: row.kind as PrKind,
+      value: row.value,
+      workoutSetId: row.workoutSetId,
+      workoutId,
+    });
+  }
+  return details;
 }

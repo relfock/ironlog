@@ -1,10 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { and, asc, eq, gte, lt } from 'drizzle-orm';
+import { addDatabaseChangeListener } from 'expo-sqlite';
 import { db } from '@/db/client';
 import { exercises, workoutExercises, workoutSets, workouts } from '@/db/schema';
-import { accumulateMuscleSets, muscleDistribution } from '@/domain/volume';
+import {
+  accumulateMuscleSets,
+  muscleDistribution,
+} from '@/domain/volume';
 import { startOfLocalWeek, type WeekStart } from '@/domain/streak';
-import type { Muscle } from '@/domain/types';
+import { setTypeCountsForStats, type Muscle, type SetType } from '@/domain/types';
+import { useSettings } from '@/stores/RootStore';
 import { useWorkoutHistory } from './useHistory';
 
 export interface WeeklyVolume {
@@ -14,7 +19,15 @@ export interface WeeklyVolume {
 }
 
 export interface MuscleStats {
+  /** Total work sets per muscle in the window (secondary muscles count half). */
   readonly setsPerMuscle: Map<Muscle, number>;
+  /**
+   * Average weekly work sets per muscle: the window total divided by its length
+   * in weeks. This is the science-backed dose the heatmap zones are defined
+   * against, so a muscle trained 13 sets in the last month averages ~3.3/week
+   * and a single week with 13 sets averages 13/week.
+   */
+  readonly weeklySetsPerMuscle: Map<Muscle, number>;
   readonly distribution: Map<Muscle, number>;
 }
 
@@ -37,9 +50,10 @@ export function useStatistics(
   totalVolumeKg: number;
   totalWorkouts: number;
   loading: boolean;
+  /** Force the muscle heatmap to re-read the database. Screens call this on focus. */
+  reloadMuscle: () => void;
 } {
   const { workouts: history, loading } = useWorkoutHistory(1000);
-  const [setsPerMuscle, setSetsPerMuscle] = useState<Map<Muscle, number>>(new Map());
 
   const sinceMs = useMemo(() => {
     const anchor = new Date(startOfLocalWeek(Date.now(), weekStart));
@@ -78,77 +92,61 @@ export function useStatistics(
       .map(([weekStartMs, v]) => ({ weekStartMs, ...v }));
   }, [history, sinceMs, weekStart]);
 
-  // Muscle-group set counts over the same window.
-  const workoutIds = useMemo(
-    () => history.filter((w) => w.startedAt >= sinceMs).map((w) => w.id),
-    [history, sinceMs],
-  );
-  const idKey = workoutIds.join(',');
+  // Muscle-group work-set counts over the same window.
+  //
+  // A bare `useLiveQuery` cannot be used here: Drizzle's implementation only
+  // re-runs the query when the FROM table (`workout_sets`) changes, and edits
+  // to a completed workout's exercise can touch only `workout_exercises`
+  // (replacing or removing an exercise) or `exercises` (muscle mapping). The
+  // hook below therefore reloads on ANY database write, plus on screen focus.
+  const { rows, reload } = useMuscleRows(sinceMs);
+  const settings = useSettings();
 
+  // Belt-and-suspenders: when a workout is added or removed, `history` changes
+  // (it is a live query on `workouts`), so force the muscle join to re-read.
+  // This guarantees new workouts redraw the heatmap even if the native change
+  // listener is dropped while this screen stays mounted.
   useEffect(() => {
-    if (workoutIds.length === 0) {
-      setSetsPerMuscle(new Map());
-      return;
-    }
-    let cancelled = false;
+    reload();
+  }, [history.length, reload]);
 
-    void (async () => {
-      const rows = await db
-        .select({
-          weId: workoutExercises.id,
-          primaryMuscles: exercises.primaryMuscles,
-          secondaryMuscles: exercises.secondaryMuscles,
-        })
-        .from(workoutExercises)
-        .innerJoin(exercises, eq(workoutExercises.exerciseId, exercises.id))
-        .where(
-          and(
-            inArray(workoutExercises.workoutId, workoutIds),
-            eq(workoutExercises.deleted, false),
-          ),
-        );
+  const countingRows = useMemo(
+    () =>
+      rows.filter((r) =>
+        setTypeCountsForStats(r.setType as SetType, settings.values.countWarmupsInStats),
+      ),
+    [rows, settings.values.countWarmupsInStats],
+  );
 
-      if (rows.length === 0) {
-        if (!cancelled) setSetsPerMuscle(new Map());
-        return;
-      }
-
-      const setRows = await db
-        .select({ weId: workoutSets.workoutExerciseId, completed: workoutSets.completed })
-        .from(workoutSets)
-        .where(
-          and(
-            inArray(
-              workoutSets.workoutExerciseId,
-              rows.map((r) => r.weId),
-            ),
-            eq(workoutSets.completed, true),
-            eq(workoutSets.deleted, false),
-          ),
-        );
-
-      const countByWe = new Map<string, number>();
-      for (const s of setRows) {
-        countByWe.set(s.weId, (countByWe.get(s.weId) ?? 0) + 1);
-      }
-
-      const credits = rows.map((r) => ({
+  const setsPerMuscle = useMemo<Map<Muscle, number>>(() => {
+    if (countingRows.length === 0) return new Map();
+    // Each row is one work set; credit it once to its muscle groups. Every set
+    // of a workout exercise shares the same muscles.
+    return accumulateMuscleSets(
+      countingRows.map((r) => ({
         primary: r.primaryMuscles as Muscle[],
         secondary: r.secondaryMuscles as Muscle[],
-        completedSets: countByWe.get(r.weId) ?? 0,
-      }));
+        completedSets: 1,
+      })),
+    );
+  }, [countingRows]);
 
-      if (!cancelled) setSetsPerMuscle(accumulateMuscleSets(credits));
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [idKey, workoutIds]);
+  const weeklySetsPerMuscle = useMemo<Map<Muscle, number>>(() => {
+    if (setsPerMuscle.size === 0) return new Map();
+    const out = new Map<Muscle, number>();
+    for (const [m, sets] of setsPerMuscle) {
+      out.set(m, sets / lookbackWeeks);
+    }
+    return out;
+  }, [setsPerMuscle, lookbackWeeks]);
 
   const muscle = useMemo<MuscleStats>(
-    () => ({ setsPerMuscle, distribution: muscleDistribution(setsPerMuscle) }),
-    [setsPerMuscle],
+    () => ({
+      setsPerMuscle,
+      weeklySetsPerMuscle,
+      distribution: muscleDistribution(setsPerMuscle),
+    }),
+    [setsPerMuscle, weeklySetsPerMuscle],
   );
 
   const totalVolumeKg = useMemo(
@@ -162,7 +160,92 @@ export function useStatistics(
     totalVolumeKg,
     totalWorkouts: history.length,
     loading,
+    /** Force the muscle heatmap to re-read the database. Screens call this on focus. */
+    reloadMuscle: reload,
   };
+}
+
+/**
+ * Reactive fetch of the completed-set → muscle join. Unlike Drizzle's
+ * `useLiveQuery`, this re-runs on ANY database write (not just the FROM table)
+ * and can be forced via `reload`, so replacing/removing an exercise or editing
+ * a set's values always reaches the heatmap. `untilMs`, when given, bounds the
+ * fetch to a single window (used by the week heatmap); without it the window
+ * is "since `sinceMs` and forever".
+ */
+export function useMuscleRows(sinceMs: number, untilMs?: number): {
+  rows: readonly {
+    primaryMuscles: unknown;
+    secondaryMuscles: unknown;
+    setType: string;
+  }[];
+  reload: () => void;
+} {
+  const [rows, setRows] = useState<
+    readonly {
+      primaryMuscles: unknown;
+      secondaryMuscles: unknown;
+      setType: string;
+    }[]
+  >([]);
+  const [version, setVersion] = useState(0);
+
+  const query = useMemo(
+    () =>
+      db
+        .select({
+          primaryMuscles: exercises.primaryMuscles,
+          secondaryMuscles: exercises.secondaryMuscles,
+          setType: workoutSets.setType,
+        })
+        .from(workoutSets)
+        .innerJoin(
+          workoutExercises,
+          eq(workoutSets.workoutExerciseId, workoutExercises.id),
+        )
+        .innerJoin(workouts, eq(workoutExercises.workoutId, workouts.id))
+        .innerJoin(exercises, eq(workoutExercises.exerciseId, exercises.id))
+        .where(
+          and(
+            eq(workouts.status, 'completed'),
+            eq(workouts.deleted, false),
+            eq(workoutExercises.deleted, false),
+            eq(workoutSets.completed, true),
+            eq(workoutSets.deleted, false),
+            gte(workouts.startedAt, sinceMs),
+            ...(untilMs === undefined ? [] : [lt(workouts.startedAt, untilMs)]),
+          ),
+        ),
+    [sinceMs, untilMs],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      void query.then((d) => {
+        if (cancelled) return;
+        setRows(
+          d.map((r) => ({
+            primaryMuscles: r.primaryMuscles,
+            secondaryMuscles: r.secondaryMuscles,
+            setType: r.setType,
+          })),
+        );
+      });
+    };
+    load();
+    // Any write can affect the heatmap. Filtering by table name risks missing
+    // one (e.g. an exercise replacement may only touch `workout_exercises`), so
+    // re-read on every change — this query is cheap and bounded by the window.
+    const listener = addDatabaseChangeListener(() => load());
+    return () => {
+      cancelled = true;
+      listener.remove();
+    };
+  }, [query, version]);
+
+  const reload = useCallback(() => setVersion((v) => v + 1), []);
+  return { rows, reload };
 }
 
 /** Per-session best values for one exercise, for the progression charts. */

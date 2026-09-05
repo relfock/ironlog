@@ -27,6 +27,18 @@ export interface Palette {
   readonly bodyPrimary: string;
   readonly bodySecondary: string;
   /**
+   * Heatmap colour for the "Very high" (21+ sets/week) zone. Deliberately a
+   * distinct dark blue: past the optimal zone it signals diminishing returns
+   * rather than more intensity of the "good" gradient.
+   */
+  readonly bodyVeryHigh: string;
+  /** Heatmap red: the "Optimal" (10–20 sets/week) zone. */
+  readonly bodyHeatOptimal: string;
+  /** Heatmap pink: the "Moderate" (5–9 sets/week) zone. */
+  readonly bodyHeatModerate: string;
+  /** Heatmap orange: the "Low" (1–4 sets/week) zone. */
+  readonly bodyHeatLow: string;
+  /**
    * The muscle-worked artwork draws a silhouette behind the muscles and a pair
    * of shorts over it. Both are fixed in the source files (#343542 and
    * #b2b4e0) and carry no meaning, so they are themed as neutrals — but the
@@ -35,8 +47,6 @@ export interface Palette {
    */
   readonly bodySilhouette: string;
   readonly bodyShorts: string;
-  /** Heatmap ramp, hottest first — indexes match `intensity` 1..n. */
-  readonly heatRamp: readonly string[];
   readonly setTypeWarmup: string;
   readonly setTypeDrop: string;
   readonly setTypeFailure: string;
@@ -59,9 +69,12 @@ export const lightPalette: Palette = {
   bodyBase: '#D6DAE0',
   bodyPrimary: '#008CFF',
   bodySecondary: '#93B4F7',
+  bodyVeryHigh: '#123F8F',
+  bodyHeatOptimal: '#D93A3A',
+  bodyHeatModerate: '#E64980',
+  bodyHeatLow: '#F08C00',
   bodySilhouette: '#B2BAC5',
   bodyShorts: '#98A0B8',
-  heatRamp: ['#123F8F', '#2C6BED', '#7BA4F5', '#C3D6FB'],
   setTypeWarmup: '#C8820A',
   setTypeDrop: '#7A4BD0',
   setTypeFailure: '#D93A3A',
@@ -84,9 +97,12 @@ export const darkPalette: Palette = {
   bodyBase: '#2E353D',
   bodyPrimary: '#FF7A50',
   bodySecondary: '#A66A4F',
+  bodyVeryHigh: '#3A5DA8',
+  bodyHeatOptimal: '#FF6B6B',
+  bodyHeatModerate: '#F783AC',
+  bodyHeatLow: '#FFB020',
   bodySilhouette: '#20262E',
   bodyShorts: '#3A4250',
-  heatRamp: ['#9FC0FF', '#5C90FF', '#3A5DA8', '#26364F'],
   setTypeWarmup: '#F0B429',
   setTypeDrop: '#A57BEA',
   setTypeFailure: '#FF6B6B',
