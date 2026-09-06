@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { SectionList, StyleSheet, Text, View } from 'react-native';
 import { DropdownFilter, FilterSheet } from '@/components/FilterSheet';
 import { ExerciseListItem } from '@/components/ExerciseListItem';
@@ -61,6 +61,7 @@ export function ExerciseLibrary({
   onCreateCustom,
   header,
   autoFocus = false,
+  initialMuscles,
 }: {
   onPress: (exercise: Exercise) => void;
   selectedIds?: string[];
@@ -69,18 +70,34 @@ export function ExerciseLibrary({
   onCreateCustom?: () => void;
   header?: React.ReactNode;
   autoFocus?: boolean;
+  /** Pre-filter to these muscle groups (e.g. from the 2.5D heatmap explorer). */
+  initialMuscles?: readonly Muscle[];
 }) {
   const palette = usePalette();
   const { exercises, loading } = useExercises();
   const recentIds = useRecentExerciseIds();
   const [query, setQuery] = useState('');
-  const [muscle, setMuscle] = useState<Muscle | null>(null);
+  const [muscles, setMuscles] = useState<Muscle[]>(() =>
+    initialMuscles ? [...initialMuscles] : [],
+  );
   const [equipment, setEquipment] = useState<Equipment | null>(null);
   const [sheet, setSheet] = useState<'muscle' | 'equipment' | null>(null);
 
+  // A fresh navigation with a new muscle group replaces the filter. Picking a
+  // muscle in the sheet always wins over the initial list, so the user can
+  // drill down from a double-tap without the pre-filter snapping back.
+  useEffect(() => {
+    if (initialMuscles && initialMuscles.length > 0) setMuscles([...initialMuscles]);
+  }, [initialMuscles]);
+
   const filtered = useMemo(
-    () => filterExercises(exercises, { query, muscles: muscle ? [muscle] : [], equipment: equipment ? [equipment] : [] }),
-    [exercises, query, muscle, equipment],
+    () =>
+      filterExercises(exercises, {
+        query,
+        muscles,
+        equipment: equipment ? [equipment] : [],
+      }),
+    [exercises, query, muscles, equipment],
   );
 
   const byId = useMemo(() => new Map(exercises.map((e) => [e.id, e])), [exercises]);
@@ -96,13 +113,18 @@ export function ExerciseLibrary({
     const out: LibrarySection[] = [
       { key: 'all', title: 'All Exercises', data: filtered },
     ];
-    if (muscle === null && equipment === null && recentRows.length > 0) {
+    if (muscles.length === 0 && equipment === null && recentRows.length > 0) {
       out.unshift({ key: 'recent', title: 'Recent Exercises', data: recentRows });
     }
     return out;
-  }, [query, filtered, muscle, equipment, recentRows]);
+  }, [query, filtered, muscles, equipment, recentRows]);
 
-  const muscleLabel = muscle === null ? 'All Muscles' : MUSCLE_LABELS[muscle];
+  const muscleLabel =
+    muscles.length === 0
+      ? 'All Muscles'
+      : muscles.length === 1
+        ? MUSCLE_LABELS[muscles[0] as Muscle]
+        : muscles.map((m) => MUSCLE_LABELS[m]).join(' + ');
   const equipmentLabel =
     equipment === null
       ? 'All Equipment'
@@ -118,9 +140,9 @@ export function ExerciseLibrary({
       ? {
           title: 'Muscle Group',
           options: MUSCLE_FILTERS.map((m) => ({ value: m, label: MUSCLE_LABELS[m] })),
-          selected: muscle,
+          selected: muscles.length === 1 ? (muscles[0] as Muscle) : null,
           onSelect: (v) => {
-            setMuscle(v as Muscle | null);
+            setMuscles(v === null ? [] : [v as Muscle]);
             setSheet(null);
           },
         }

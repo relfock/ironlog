@@ -7,6 +7,7 @@ import { BodyMap } from '@/components/BodyMap';
 import { CalendarHeatmap } from '@/components/CalendarHeatmap';
 import { HeatmapInfoModal } from '@/components/HeatmapInfoModal';
 import { HeatmapLegend } from '@/components/HeatmapLegend';
+import { MuscleViewer } from '@/components/MuscleViewer';
 import { RecoveryInfoModal } from '@/components/RecoveryInfoModal';
 import { RecoveryLegend } from '@/components/RecoveryLegend';
 import { WeekCalendarSheet } from '@/components/WeekCalendarSheet';
@@ -44,6 +45,7 @@ export const HomeScreen = observer(function HomeScreen() {
   const [infoOpen, setInfoOpen] = useState(false);
   const [recoveryInfoOpen, setRecoveryInfoOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   const thisWeekStart = startOfLocalWeek(Date.now(), weekStart);
   const atCurrentWeek = selectedWeekStart >= thisWeekStart;
@@ -144,17 +146,26 @@ export const HomeScreen = observer(function HomeScreen() {
           {heat.length === 0 ? (
             <Caption style={{ marginTop: spacing.md }}>No completed sets this week.</Caption>
           ) : (
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'center',
-                gap: spacing.md,
-                marginTop: spacing.md,
-              }}
+            <Pressable
+              onPress={() => setViewerOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Open the interactive heatmap explorer"
+              style={styles.explore}
             >
-              <BodyMap parts={heat} side="front" scale={0.75} colors={heatScale} />
-              <BodyMap parts={heat} side="back" scale={0.75} colors={heatScale} />
-            </View>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  gap: spacing.md,
+                }}
+              >
+                <BodyMap parts={heat} side="front" scale={0.75} colors={heatScale} />
+                <BodyMap parts={heat} side="back" scale={0.75} colors={heatScale} />
+              </View>
+              <Caption style={{ textAlign: 'center', marginTop: spacing.xs }}>
+                Tap to rotate, zoom and explore
+              </Caption>
+            </Pressable>
           )}
           <HeatmapLegend colors={heatScale} />
           <View
@@ -239,6 +250,20 @@ export const HomeScreen = observer(function HomeScreen() {
           </View>
         </Card>
       </ScrollView>
+
+      {viewerOpen && heat.length > 0 ? (
+        <MuscleViewer
+          parts={heat}
+          colors={heatScale}
+          onClose={() => setViewerOpen(false)}
+          onOpenExercises={(muscles) =>
+            navigation.navigate('Tabs', {
+              screen: 'Exercises',
+              params: { muscles: [...muscles] },
+            })
+          }
+        />
+      ) : null}
     </SafeAreaView>
   );
 });
@@ -252,6 +277,7 @@ function greeting(): string {
 
 const styles = StyleSheet.create({
   scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  explore: { marginTop: spacing.md },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',

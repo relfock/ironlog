@@ -1,10 +1,12 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { Muscle } from '@/domain/types';
 
 export type TabParamList = {
   Home: undefined;
   Routines: undefined;
   StartWorkout: undefined;
-  Exercises: undefined;
+  /** Set `muscles` to pre-filter the library (e.g. GLG 2.5D explorer double-tap). */
+  Exercises: { muscles?: Muscle[] } | undefined;
   Profile: undefined;
 };
 

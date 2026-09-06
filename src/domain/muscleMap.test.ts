@@ -1,6 +1,8 @@
 import {
   BACK_SLUGS,
   FRONT_SLUGS,
+  SLUG_LABELS,
+  SLUG_TO_MUSCLES,
   buildHeatmap,
   buildHighlight,
   muscleToSlug,
@@ -9,6 +11,13 @@ import {
   type BodySlug,
 } from './muscleMap';
 import type { Muscle } from './types';
+
+/**
+ * Helper used by the viewer tests: slug set the art can actually draw.
+ */
+function unionSlugs(): BodySlug[] {
+  return [...new Set<BodySlug>([...FRONT_SLUGS, ...BACK_SLUGS])];
+}
 
 /**
  * Guard rail: these read the INSTALLED package, so a dependency upgrade that
@@ -100,6 +109,34 @@ describe('preferredSide', () => {
 
   it('defaults to front when nothing is highlighted', () => {
     expect(preferredSide([])).toBe('front');
+  });
+});
+
+describe('slug label & muscle reverse maps for the 2.5D viewer', () => {
+
+  it('labels every slug the artwork can draw', () => {
+    for (const slug of unionSlugs()) {
+      expect(SLUG_LABELS[slug]).toBeTruthy();
+    }
+  });
+
+  it('expands collapsed muscle groups for the exercise filter', () => {
+    expect(SLUG_TO_MUSCLES.deltoids).toEqual(['front_delts', 'side_delts', 'rear_delts']);
+    expect(SLUG_TO_MUSCLES['upper-back']).toEqual(['lats', 'upper_back']);
+    expect(SLUG_TO_MUSCLES.gluteal).toEqual(['glutes', 'abductors']);
+  });
+
+  it('maps single-muscle slugs straight through', () => {
+    expect(SLUG_TO_MUSCLES.chest).toEqual(['chest']);
+    expect(SLUG_TO_MUSCLES.quadriceps).toEqual(['quads']);
+    expect(SLUG_TO_MUSCLES['lower-back']).toEqual(['lower_back']);
+    expect(SLUG_TO_MUSCLES.tibialis).toEqual(['shins']);
+  });
+
+  it('blankets body parts with no exercises so a double-tap does nothing', () => {
+    for (const slug of ['hair', 'head', 'hands', 'feet', 'ankles', 'knees'] as const) {
+      expect(SLUG_TO_MUSCLES[slug]).toEqual([]);
+    }
   });
 });
 

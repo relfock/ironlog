@@ -101,6 +101,67 @@ export function muscleToSlug(muscle: Muscle): BodySlug | null {
   return MUSCLE_TO_SLUG[muscle];
 }
 
+/** Human-friendly labels for the 23 drawable body slugs, for the 2.5D/3D explorer. */
+export const SLUG_LABELS: Record<BodySlug, string> = {
+  abs: 'Abs',
+  adductors: 'Adductors',
+  ankles: 'Ankles',
+  biceps: 'Biceps',
+  calves: 'Calves',
+  chest: 'Chest',
+  deltoids: 'Delts',
+  feet: 'Feet',
+  forearm: 'Forearms',
+  gluteal: 'Glutes',
+  hamstring: 'Hamstrings',
+  hands: 'Hands',
+  hair: 'Hair',
+  head: 'Head',
+  knees: 'Knees',
+  neck: 'Neck',
+  obliques: 'Obliques',
+  quadriceps: 'Quads',
+  tibialis: 'Shins',
+  trapezius: 'Traps',
+  triceps: 'Triceps',
+  'lower-back': 'Lower back',
+  'upper-back': 'Upper back',
+};
+
+/**
+ * Reverse lookup for the 2.5D explorer: which of OUR muscles a slug stands for,
+ * used to pre-filter the exercise library on a double-tap. Slugs that collapse
+ * several taxonomy muscles (delts, lats + upper back, glutes + abductors)
+ * expand to the same list `filterExercises` matches, so every exercise for the
+ * tapped group shows up. Body parts with no exercises (hair, feet, ...) map to
+ * an empty list and simply do nothing.
+ */
+export const SLUG_TO_MUSCLES: Record<BodySlug, readonly Muscle[]> = {
+  abs: ['abs'],
+  adductors: ['adductors'],
+  ankles: [],
+  biceps: ['biceps'],
+  calves: ['calves'],
+  chest: ['chest'],
+  deltoids: ['front_delts', 'side_delts', 'rear_delts'],
+  feet: [],
+  forearm: ['forearms'],
+  gluteal: ['glutes', 'abductors'],
+  hamstring: ['hamstrings'],
+  hands: [],
+  hair: [],
+  head: [],
+  knees: [],
+  neck: ['neck'],
+  obliques: ['obliques'],
+  quadriceps: ['quads'],
+  tibialis: ['shins'],
+  trapezius: ['traps'],
+  triceps: ['triceps'],
+  'lower-back': ['lower_back'],
+  'upper-back': ['lats', 'upper_back'],
+};
+
 export function slugExistsOn(slug: BodySlug, side: BodySide): boolean {
   return side === 'front' ? FRONT_SLUGS.includes(slug) : BACK_SLUGS.includes(slug);
 }
