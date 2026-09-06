@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ActionSheet } from '@/components/ActionSheet';
 import { LineChartCard } from '@/components/charts/LineChartCard';
+import { MeasurementGuideSheet } from '@/components/MeasurementGuideSheet';
 import { PromptModal } from '@/components/PromptModal';
 import { SpanSheet } from '@/components/SpanSheet';
 import { Body, Caption, Card, H1, H2, Row } from '@/components/ui';
@@ -42,6 +43,7 @@ export const MeasurementsScreen = observer(function MeasurementsScreen() {
   const [span, setSpan] = useState<Span>('1M');
   const [history, setHistory] = useState<Measurement[]>([]);
   const [entering, setEntering] = useState<MeasurementKind | null>(null);
+  const [guideKind, setGuideKind] = useState<MeasurementKind | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [kindSheetOpen, setKindSheetOpen] = useState(false);
   const [spanSheetOpen, setSpanSheetOpen] = useState(false);
@@ -147,25 +149,37 @@ export const MeasurementsScreen = observer(function MeasurementsScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <H1>Measurements</H1>
         <Caption style={{ marginTop: 2 }}>
-          Tap a measurement below to log a new value.
+          Tap a measurement to log a new value — tap the ? to read how to measure it correctly.
         </Caption>
 
         <Card style={{ marginTop: spacing.lg }}>
           <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
             <H2>Measurements</H2>
-            <Pressable
-              onPress={() => setSpanSheetOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Chart time span"
-              style={[styles.chip, { borderColor: palette.border }]}
-            >
-              <Text style={{ color: palette.textMuted, fontSize: fontSize.sm, fontWeight: '600' }}>
-                {SPANS.find((s) => s.key === span)!.label}
-              </Text>
-              <Text style={{ color: palette.textMuted, fontSize: fontSize.sm, fontWeight: '600' }}>
-                ▾
-              </Text>
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable
+                onPress={() => setGuideKind(selected)}
+                accessibilityRole="button"
+                accessibilityLabel={`How to measure ${MEASUREMENT_LABELS[selected]}`}
+                style={[styles.guide, { borderColor: palette.border }]}
+              >
+                <Text style={{ color: palette.accent, fontSize: fontSize.sm, fontWeight: '800' }}>
+                  ?
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setSpanSheetOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Chart time span"
+                style={[styles.chip, { borderColor: palette.border }]}
+              >
+                <Text style={{ color: palette.textMuted, fontSize: fontSize.sm, fontWeight: '600' }}>
+                  {SPANS.find((s) => s.key === span)!.label}
+                </Text>
+                <Text style={{ color: palette.textMuted, fontSize: fontSize.sm, fontWeight: '600' }}>
+                  ▾
+                </Text>
+              </Pressable>
+            </View>
           </Row>
 
           <Pressable
@@ -258,11 +272,18 @@ export const MeasurementsScreen = observer(function MeasurementsScreen() {
                     : `${trimNumber(display(kind, m.value), 1)} ${unitFor(kind)}`
                 }
                 onPress={() => setEntering(kind)}
+                onInfoPress={() => setGuideKind(kind)}
               />
             );
           })}
         </SettingsSection>
       </ScrollView>
+
+      <MeasurementGuideSheet
+        visible={guideKind !== null}
+        kind={guideKind}
+        onClose={() => setGuideKind(null)}
+      />
 
       <ActionSheet
         visible={kindSheetOpen}
@@ -323,6 +344,15 @@ export const MeasurementsScreen = observer(function MeasurementsScreen() {
 
 const styles = StyleSheet.create({
   scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  guide: {
+    width: 26,
+    height: 26,
+    borderRadius: radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',

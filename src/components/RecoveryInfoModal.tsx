@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     marginBottom: spacing.md,
   },
-  scroll: { flexShrink: 1 },
+  scroll: { flexShrink: 1, minHeight: 0 },
   scrollContent: { paddingBottom: spacing.sm },
   title: { fontSize: fontSize.lg, fontWeight: '700', marginBottom: spacing.sm },
   paragraph: { fontSize: fontSize.sm, lineHeight: 20, marginBottom: spacing.md },

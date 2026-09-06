@@ -128,9 +128,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     marginBottom: spacing.md,
   },
-  // Without flexShrink this grows to its full content height and the sheet
-  // exceeds maxHeight, so the body never scrolls.
-  scroll: { flexShrink: 1 },
+  // Without flexShrink (and minHeight: 0) this grows to its full content
+  // height and the sheet exceeds maxHeight, so the body never scrolls.
+  scroll: { flexShrink: 1, minHeight: 0 },
   scrollContent: { paddingBottom: spacing.sm },
   title: { fontSize: fontSize.lg, fontWeight: '700', marginBottom: spacing.sm },
   paragraph: { fontSize: fontSize.sm, lineHeight: 20, marginBottom: spacing.md },

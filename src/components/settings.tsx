@@ -65,12 +65,14 @@ export function SettingsRow({
   description,
   value,
   onPress,
+  onInfoPress,
   destructive = false,
 }: {
   label: string;
   description?: string;
   value?: string;
   onPress?: () => void;
+  onInfoPress?: () => void;
   destructive?: boolean;
 }) {
   const palette = usePalette();
@@ -100,6 +102,21 @@ export function SettingsRow({
       </View>
       {value !== undefined ? (
         <Text style={{ color: palette.textMuted, fontSize: fontSize.md }}>{value}</Text>
+      ) : null}
+      {onInfoPress !== undefined ? (
+        <Pressable
+          onPress={onInfoPress}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={`How to measure ${label}`}
+          style={({ pressed }) => [
+            styles.info,
+            { borderColor: palette.border },
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <Text style={[styles.infoText, { color: palette.accent }]}>i</Text>
+        </Pressable>
       ) : null}
       {onPress !== undefined ? (
         <Text style={{ color: palette.textFaint, fontSize: fontSize.md, marginLeft: 6 }}>
@@ -183,4 +200,15 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs + 2,
     borderRadius: radius.pill,
   },
+  info: {
+    width: 22,
+    height: 22,
+    borderRadius: radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.sm,
+  },
+  infoText: { fontSize: fontSize.sm, fontWeight: '800' },
+  pressed: { opacity: 0.6 },
 });
