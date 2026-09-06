@@ -11,6 +11,8 @@ import { recordChange } from './outbox';
 export type MeasurementKind =
   | 'weight'
   | 'body_fat'
+  | 'lean_body_mass'
+  | 'bone_mass'
   | 'neck'
   | 'shoulders'
   | 'chest'
@@ -26,14 +28,16 @@ export type MeasurementKind =
   | 'calf_right';
 
 export const MEASUREMENT_KINDS: readonly MeasurementKind[] = [
-  'weight', 'body_fat', 'neck', 'shoulders', 'chest', 'waist', 'hips',
-  'arm_left', 'arm_right', 'forearm_left', 'forearm_right',
-  'thigh_left', 'thigh_right', 'calf_left', 'calf_right',
+  'weight', 'body_fat', 'lean_body_mass', 'bone_mass', 'neck', 'shoulders',
+  'chest', 'waist', 'hips', 'arm_left', 'arm_right', 'forearm_left',
+  'forearm_right', 'thigh_left', 'thigh_right', 'calf_left', 'calf_right',
 ];
 
 export const MEASUREMENT_LABELS: Record<MeasurementKind, string> = {
   weight: 'Bodyweight',
   body_fat: 'Body fat',
+  lean_body_mass: 'Lean body mass',
+  bone_mass: 'Bone mass',
   neck: 'Neck',
   shoulders: 'Shoulders',
   chest: 'Chest',
@@ -51,7 +55,7 @@ export const MEASUREMENT_LABELS: Record<MeasurementKind, string> = {
 
 /** What a kind is measured in, so the UI never mislabels a value. */
 export function measurementUnit(kind: MeasurementKind): 'mass' | 'length' | 'percent' {
-  if (kind === 'weight') return 'mass';
+  if (kind === 'weight' || kind === 'lean_body_mass' || kind === 'bone_mass') return 'mass';
   if (kind === 'body_fat') return 'percent';
   return 'length';
 }

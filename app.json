@@ -29,10 +29,16 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.health.READ_WEIGHT",
+        "android.permission.health.READ_BODY_FAT",
+        "android.permission.health.READ_LEAN_BODY_MASS",
+        "android.permission.health.READ_BONE_MASS",
+        "android.permission.health.READ_HEALTH_DATA_HISTORY"
       ]
     },
     "plugins": [
+      "react-native-health-connect",
       "expo-sqlite",
       [
         "expo-build-properties",
@@ -40,7 +46,7 @@
           "android": {
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
-            "minSdkVersion": 24,
+            "minSdkVersion": 26,
             "buildArchs": [
               "arm64-v8a",
               "x86_64"
