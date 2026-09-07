@@ -68,17 +68,17 @@ describe('ageFactor and sexFactor', () => {
     expect(ageFactor(new Date().getFullYear() - 70)).toBe(1.5);
   });
 
-  it('shortens recovery for female sex', () => {
+  it('shortens recovery slightly for female sex', () => {
     expect(sexFactor(null)).toBe(1);
     expect(sexFactor('male')).toBe(1);
-    expect(sexFactor('female')).toBe(0.85);
+    expect(sexFactor('female')).toBe(0.95);
   });
 });
 
 describe('recoveryTauHours', () => {
   it('is half the window, scaled by modifiers', () => {
     expect(recoveryTauHours(48, null, null)).toBe(24);
-    expect(recoveryTauHours(48, null, 'female')).toBe(20.4);
+    expect(recoveryTauHours(48, null, 'female')).toBe(0.5 * 48 * 0.95);
     expect(recoveryTauHours(72, new Date().getFullYear() - 50, null)).toBe(0.5 * 72 * 1.35);
   });
 });

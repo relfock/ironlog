@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   DAY_MS,
   formatWeekSpan,
@@ -96,53 +96,55 @@ export function WeekCalendarSheet({
             </Pressable>
           </View>
 
-          <View style={styles.wkRow}>
-            {labels.map((l, i) => (
-              <View key={`${l}-${i}`} style={styles.wkLabel}>
-                <Text style={{ color: palette.textFaint, fontSize: fontSize.xs }}>{l}</Text>
+          <ScrollView style={styles.bodyScroll} showsVerticalScrollIndicator={false}>
+            <View style={styles.wkRow}>
+              {labels.map((l, i) => (
+                <View key={`${l}-${i}`} style={styles.wkLabel}>
+                  <Text style={{ color: palette.textFaint, fontSize: fontSize.xs }}>{l}</Text>
+                </View>
+              ))}
+            </View>
+
+            {weeks.map((weekStartMs) => (
+              <View key={weekStartMs} style={styles.wkRow}>
+                {[...Array(7)].map((_, k) => {
+                  const ms = weekStartMs + k * DAY_MS;
+                  const day = new Date(ms);
+                  const inMonth = day.getMonth() === new Date(monthAnchor).getMonth();
+                  const isSelectedWeek = startOfLocalWeek(ms, weekStart) === selectedWeekStartMs;
+                  const isToday = startOfLocalDay(ms) === todayDay;
+                  return (
+                    <Pressable
+                      key={ms}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${day.toDateString()} — select this week`}
+                      onPress={() => onSelectWeek(startOfLocalWeek(ms, weekStart))}
+                      style={[
+                        styles.dayCell,
+                        { backgroundColor: isSelectedWeek ? palette.accent : 'transparent' },
+                        isToday && !isSelectedWeek && { borderColor: palette.accent, borderWidth: 1 },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          fontSize: fontSize.sm,
+                          fontWeight: isSelectedWeek ? '700' : '500',
+                          color: isSelectedWeek
+                            ? palette.accentText
+                            : inMonth
+                              ? palette.text
+                              : palette.textFaint,
+                          opacity: inMonth ? 1 : 0.35,
+                        }}
+                      >
+                        {day.getDate()}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             ))}
-          </View>
-
-          {weeks.map((weekStartMs) => (
-            <View key={weekStartMs} style={styles.wkRow}>
-              {[...Array(7)].map((_, k) => {
-                const ms = weekStartMs + k * DAY_MS;
-                const day = new Date(ms);
-                const inMonth = day.getMonth() === new Date(monthAnchor).getMonth();
-                const isSelectedWeek = startOfLocalWeek(ms, weekStart) === selectedWeekStartMs;
-                const isToday = startOfLocalDay(ms) === todayDay;
-                return (
-                  <Pressable
-                    key={ms}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${day.toDateString()} — select this week`}
-                    onPress={() => onSelectWeek(startOfLocalWeek(ms, weekStart))}
-                    style={[
-                      styles.dayCell,
-                      { backgroundColor: isSelectedWeek ? palette.accent : 'transparent' },
-                      isToday && !isSelectedWeek && { borderColor: palette.accent, borderWidth: 1 },
-                    ]}
-                  >
-                    <Text
-                      style={{
-                        fontSize: fontSize.sm,
-                        fontWeight: isSelectedWeek ? '700' : '500',
-                        color: isSelectedWeek
-                          ? palette.accentText
-                          : inMonth
-                            ? palette.text
-                            : palette.textFaint,
-                        opacity: inMonth ? 1 : 0.35,
-                      }}
-                    >
-                      {day.getDate()}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ))}
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -156,7 +158,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.lg,
     padding: spacing.xl,
     paddingBottom: spacing.xxl,
+    maxHeight: '88%',
   },
+  bodyScroll: { flexShrink: 1, minHeight: 0, marginTop: spacing.md },
   grabber: {
     alignSelf: 'center',
     width: 40,

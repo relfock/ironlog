@@ -32,12 +32,14 @@ export function DurationField({
   onBlur,
   placeholder,
   accessibilityLabel,
+  style,
 }: {
   value: number | null;
   onChange: (seconds: number | null) => void;
   onBlur?: () => void;
   placeholder?: string;
   accessibilityLabel?: string;
+  style?: import('react-native').StyleProp<import('react-native').TextStyle>;
 }) {
   const palette = usePalette();
   const [draft, setDraft] = useState(value === null ? '' : formatDuration(value));
@@ -75,6 +77,7 @@ export function DurationField({
           backgroundColor: palette.surfaceRaised,
           borderColor: focused ? palette.accent : palette.border,
         },
+        style,
       ]}
     />
   );

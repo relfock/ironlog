@@ -22,6 +22,10 @@ export type RootStackParamList = {
     targetId: string;
     replaceRoutineExerciseId?: string;
     replaceWorkoutExerciseId?: string;
+    /** When true, the picker returns picks via the bridge instead of writing to the DB. */
+    draft?: boolean;
+    /** When mode is 'replace' and draft is true, this is the draft exercise key to replace. */
+    replaceDraftKey?: string;
   };
   RoutineEditor: { routineId?: string; folderId?: string };
   WorkoutDetail: { workoutId: string; highlightExerciseId?: string };

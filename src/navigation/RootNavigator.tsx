@@ -114,8 +114,13 @@ export function RootNavigator() {
       <Stack.Screen
         name="RoutineEditor"
         component={RoutineEditorScreen}
-        options={{ title: 'Edit Routine' }}
+        options={{ title: 'Edit Routine', headerTitleAlign: 'center' }}
       />
+      {/*
+        Note: the RoutineEditor renders its own sticky Cancel/Edit Routine/Update
+        header via setOptions; the "Edit Routine" title above is the middle of
+        that header.
+      */}
       <Stack.Screen
         name="WorkoutDetail"
         component={WorkoutDetailScreen}

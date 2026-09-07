@@ -25,8 +25,9 @@
  *   - Age: the anabolic response window lengthens with age (Damas et al.
  *     2015), slowing recovery. Modifiers ×1.0/<30y, ×1.1/30s, ×1.2/40s,
  *     ×1.35/50s, ×1.5/60+.
- *   - Sex: women recover measurably faster at the same relative effort
- *     (Roberts et al. 2023, ~15%), so female recovery windows are ×0.85.
+ *   - Sex: controlled studies on sex differences in acute recovery rate are
+ *     mixed and the effect, if any, is modest — kept here as a small ×0.95
+ *     for women rather than a strong claim.
  *
  * All of the above is surfaced in the "More info" sheet on the card.
  */
@@ -121,12 +122,13 @@ export const RECOVERY_ZONES: readonly RecoveryZone[] = [
 /**
  * Residual-fatigue thresholds (in effective work-set equivalents) that slice
  * the exponential decay curve into the zones above. Anchored so that a typical
- * cadence reads sensibly: a muscle trained a few days ago at moderate volume
- * is green, while a heavy session today is red.
+ * cadence reads sensibly: a heavy session (≈5 units) back to full green within
+ * ≈2.5 days (24·ln(4/0.4·…) ≈ 60 h), a moderate one (≈2 units) in ~1.5 days,
+ * while a session today still reads red.
  */
 export const FATIGUE_THRESHOLD_FATIGUED = 1.2;
 export const FATIGUE_THRESHOLD_RECOVERING = 0.5;
-export const FATIGUE_THRESHOLD_NEARLY = 0.12;
+export const FATIGUE_THRESHOLD_NEARLY = 0.4;
 
 /**
  * The load that counts as "fully fatigued" on the percentage scale above.
@@ -183,9 +185,9 @@ export function ageFactor(birthYear: number | null): number {
   return 1.5;
 }
 
-/** Sex multiplier: women recover ~15% faster at equal relative effort. */
+/** Sex multiplier: any faster female recovery is modest and contested. */
 export function sexFactor(sex: Sex | null): number {
-  return sex === 'female' ? 0.85 : 1;
+  return sex === 'female' ? 0.95 : 1;
 }
 
 /**
@@ -249,7 +251,8 @@ export function remainingFatigue(
 /**
  * Residual fatigue → recovery zone. Given the thresholds are in effective
  * work-set equivalents, a freshly completed heavy session (> ~2.4 units) is
- * fatigued, and anything under ~0.12 units is de facto fully recovered.
+ * fatigued, and anything under ~0.4 units is de facto fully recovered (a heavy
+ * session gets there in ~2.5 days, a moderate one in ~1.5).
  */
 export function recoveryLevel(fatigue: number): 1 | 2 | 3 | 4 | 5 {
   if (fatigue <= FATIGUE_THRESHOLD_NEARLY) return 5;

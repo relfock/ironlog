@@ -100,3 +100,6 @@ export function scheduledFireAtMs(
 export const REST_PRESETS_SEC: readonly number[] = [
   0, 30, 45, 60, 90, 120, 150, 180, 240, 300,
 ];
+
+/** Wheel picker values: 5 s to 5:00 in 5-second increments. */
+export const REST_WHEEL_SEC: readonly number[] = Array.from({ length: 60 }, (_, i) => (i + 1) * 5);

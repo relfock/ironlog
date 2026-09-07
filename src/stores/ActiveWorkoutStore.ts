@@ -322,10 +322,25 @@ export class ActiveWorkoutStore {
   async moveExercise(weId: string, delta: number): Promise<void> {
     const workout = this.workout;
     if (workout === null) return;
+    const index = workout.exercises.findIndex((e) => e.id === weId);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= workout.exercises.length) return;
+    await this.moveExerciseTo(weId, target);
+  }
+
+  /**
+   * Reorder an exercise to an absolute index. Drag-and-drop from the reorder
+   * gesture lands here; like `moveExercise`, superset groups travel with the
+   * items they belong to.
+   */
+  async moveExerciseTo(weId: string, to: number): Promise<void> {
+    const workout = this.workout;
+    if (workout === null) return;
     const list = [...workout.exercises];
     const index = list.findIndex((e) => e.id === weId);
-    const target = index + delta;
-    if (index < 0 || target < 0 || target >= list.length) return;
+    if (index < 0) return;
+    const target = Math.max(0, Math.min(list.length - 1, to));
+    if (target === index) return;
 
     const [moved] = list.splice(index, 1);
     if (moved === undefined) return;

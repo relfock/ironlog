@@ -6,9 +6,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useActiveWorkout } from '@/stores/RootStore';
 import { usePalette } from '@/theme/ThemeProvider';
 import { fontSize, spacing } from '@/theme/tokens';
-import { addExerciseToRoutine, loadRoutine, replaceRoutineExercise } from '@/db/repositories/routines';
+import {
+  addExerciseToRoutine,
+  loadRoutine,
+  replaceRoutineExercise,
+} from '@/db/repositories/routines';
 import { replaceWorkoutExerciseExerciseId } from '@/db/repositories/workouts';
 import type { RootStackParamList } from '@/navigation/types';
+import { pushPickerResult } from '@/screens/routines/exercisePickerBridge';
 import { ExerciseLibrary } from './ExerciseLibrary';
 
 /**
@@ -20,7 +25,7 @@ export const ExercisePickerScreen = observer(function ExercisePickerScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<RootStackParamList, 'ExercisePicker'>>();
   const active = useActiveWorkout();
-  const { mode, targetId, replaceRoutineExerciseId, replaceWorkoutExerciseId } = route.params;
+  const { mode, targetId, replaceRoutineExerciseId, replaceWorkoutExerciseId, draft, replaceDraftKey } = route.params;
   const [selected, setSelected] = useState<string[]>([]);
 
   const toggle = useCallback(
@@ -35,6 +40,18 @@ export const ExercisePickerScreen = observer(function ExercisePickerScreen() {
   );
 
   async function commit(ids: string[]) {
+    if (draft) {
+      if (mode === 'replace') {
+        const key = replaceDraftKey;
+        const id = ids[0];
+        if (key === undefined || id === undefined) return;
+        pushPickerResult({ action: 'replace', draftExerciseKey: key, newExerciseId: id });
+      } else {
+        pushPickerResult({ action: 'add', exerciseIds: ids });
+      }
+      return;
+    }
+
     if (mode === 'replace') {
       const id = ids[0];
       if (id === undefined) return;

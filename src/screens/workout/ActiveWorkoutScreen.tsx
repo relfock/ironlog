@@ -1,10 +1,11 @@
 import { useNavigation } from '@react-navigation/native';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { observer } from 'mobx-react-lite';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -42,6 +43,140 @@ export const ActiveWorkoutScreen = observer(function ActiveWorkoutScreen() {
   const [editing, setEditing] = useState<'name' | 'notes' | null>(null);
 
   useKeepAwakeIfEnabled(settings.values.keepAwake);
+
+  // ---------------------------------------------------------------------------
+  // Drag-and-drop reorder (same anchored-ghost pattern as the routine editor)
+  // ---------------------------------------------------------------------------
+  const [, setDragFrame] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollYRef = useRef(0);
+  const containerTopRef = useRef(0);
+  const viewportHRef = useRef(0);
+  const contentHRef = useRef(0);
+  const positionsRef = useRef(new Map<string, { top: number; height: number }>());
+  const dragKeyRef = useRef<string | null>(null);
+  const dragStartIndexRef = useRef(0);
+  const grabScreenTopRef = useRef(0);
+  const dragDyRef = useRef(0);
+  const [drag, setDrag] = useState<{ key: string; startIndex: number } | null>(null);
+
+  const beginDrag = useCallback((key: string, startIndex: number) => {
+    dragKeyRef.current = key;
+    dragStartIndexRef.current = startIndex;
+    const pos = positionsRef.current.get(key);
+    grabScreenTopRef.current = pos !== undefined ? pos.top - scrollYRef.current : 0;
+    dragDyRef.current = 0;
+    setDrag({ key, startIndex });
+  }, []);
+
+  const dragMoveRef = useRef<(dy: number, moveY: number) => void>(() => {});
+  const dragEndRef = useRef<(dy: number) => void>(() => {});
+
+  dragMoveRef.current = (dy: number, moveY: number) => {
+    const key = dragKeyRef.current;
+    if (key === null) return;
+    dragDyRef.current = dy;
+    setDragFrame((t) => t + 1);
+
+    const scrollNow = scrollYRef.current;
+    const vTop = containerTopRef.current;
+    const vBot = vTop + viewportHRef.current;
+    if (viewportHRef.current <= 0) return;
+    const edge = 90;
+    const maxScroll = Math.max(0, contentHRef.current - viewportHRef.current);
+    let target = scrollNow;
+    if (moveY < vTop + edge) {
+      target = scrollNow - (vTop + edge - moveY) * 1.4;
+    } else if (moveY > vBot - edge) {
+      target = scrollNow + (moveY - (vBot - edge)) * 1.4;
+    }
+    target = Math.max(0, Math.min(maxScroll, target));
+    if (Math.abs(target - scrollNow) > 0.5) {
+      scrollRef.current?.scrollTo({ y: target, animated: false });
+      scrollYRef.current = target;
+    }
+  };
+
+  dragEndRef.current = (dy: number) => {
+    const key = dragKeyRef.current;
+    if (key === null) return;
+    dragKeyRef.current = null;
+    dragDyRef.current = 0;
+    setDrag(null);
+    setDragFrame((t) => t + 1);
+
+    const list = active.exercises;
+    if (list.length === 0) return;
+    const pos = positionsRef.current.get(key);
+    if (pos === undefined) return;
+    const ghostMid = grabScreenTopRef.current + dy + pos.height / 2;
+    let target = 0;
+    for (const o of list) {
+      if (o.id === key) continue;
+      const op = positionsRef.current.get(o.id);
+      if (op === undefined) continue;
+      const oMid = op.top - scrollYRef.current + op.height / 2;
+      if (oMid < ghostMid) target += 1;
+    }
+    target = Math.max(0, Math.min(list.length - 1, target));
+    if (target !== dragStartIndexRef.current) {
+      void active.moveExerciseTo(key, target);
+    }
+  };
+
+  const dragPan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: () => dragKeyRef.current !== null,
+        onPanResponderMove: (_e, g) => dragMoveRef.current(g.dy, g.moveY),
+        onPanResponderRelease: (_e, g) => dragEndRef.current(g.dy),
+        onPanResponderTerminate: (_e, g) => dragEndRef.current(g.dy),
+      }),
+    [],
+  );
+
+  // Target insertion slot while dragging, mapped to a screen-space drop line.
+  const dragInsert = (() => {
+    if (dragKeyRef.current === null) return null;
+    const key = dragKeyRef.current;
+    const pos = positionsRef.current.get(key);
+    if (pos === undefined) return null;
+    const ghostMid = grabScreenTopRef.current + dragDyRef.current + pos.height / 2;
+    let target = 0;
+    for (const o of active.exercises) {
+      if (o.id === key) continue;
+      const op = positionsRef.current.get(o.id);
+      if (op === undefined) continue;
+      const oMid = op.top - scrollYRef.current + op.height / 2;
+      if (oMid < ghostMid) target += 1;
+    }
+    return Math.max(0, Math.min(active.exercises.length - 1, target));
+  })();
+
+  const dragKeyNow = dragKeyRef.current;
+  const dragTranslate = (() => {
+    if (dragKeyNow === null) return 0;
+    const pos = positionsRef.current.get(dragKeyNow);
+    if (pos === undefined) return 0;
+    return grabScreenTopRef.current + dragDyRef.current - (pos.top - scrollYRef.current);
+  })();
+
+  const dragLineTop = (() => {
+    if (dragKeyRef.current === null || dragInsert === null) return null;
+    const key = dragKeyRef.current;
+    const start = dragStartIndexRef.current;
+    const pos = positionsRef.current.get(key);
+    if (pos === undefined) return null;
+    if (dragInsert === start) return null;
+    const dir = dragInsert > start ? 1 : -1;
+    const neighbour = active.exercises[dragInsert];
+    if (neighbour === undefined) return null;
+    const np = positionsRef.current.get(neighbour.id);
+    if (np === undefined) return null;
+    const y = dir > 0 ? np.top + np.height : np.top;
+    return y - scrollYRef.current;
+  })();
 
   const openPlates = useCallback((weightKg: number | null) => {
     setPlateTarget(weightKg);
@@ -162,67 +297,107 @@ export const ActiveWorkoutScreen = observer(function ActiveWorkoutScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-        >
-          {active.exercises.length === 0 ? (
-            <EmptyState
-              title="Add your first exercise"
-              message="Pick something from the library to start logging."
-              action={{
-                label: 'Add exercise',
-                onPress: () =>
-                  navigation.navigate('ExercisePicker', {
-                    mode: 'workout',
-                    targetId: 'active',
-                  }),
-              }}
-            />
-          ) : (
-            active.exercises.map((we) => (
-              <WorkoutExerciseCard
-                key={we.id}
-                we={we}
-                onRequestPlateCalculator={openPlates}
+        <View style={styles.screen}>
+          <ScrollView
+            ref={scrollRef}
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            scrollEventThrottle={16}
+            onLayout={(e) => {
+              viewportHRef.current = e.nativeEvent.layout.height;
+              (
+                scrollRef.current as unknown as {
+                  measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void;
+                }
+              ).measureInWindow?.((_x, y) => {
+                containerTopRef.current = y;
+              });
+            }}
+            onContentSizeChange={(_w, h) => {
+              contentHRef.current = h;
+            }}
+            onScroll={(e) => {
+              scrollYRef.current = e.nativeEvent.contentOffset.y;
+              if (dragKeyRef.current !== null) setDragFrame((t) => t + 1);
+            }}
+          >
+            {active.exercises.length === 0 ? (
+              <EmptyState
+                title="Add your first exercise"
+                message="Pick something from the library to start logging."
+                action={{
+                  label: 'Add exercise',
+                  onPress: () =>
+                    navigation.navigate('ExercisePicker', {
+                      mode: 'workout',
+                      targetId: 'active',
+                    }),
+                }}
               />
-            ))
-          )}
+            ) : (
+              active.exercises.map((we, index) => (
+                <WorkoutExerciseCard
+                  key={we.id}
+                  we={we}
+                  compact={drag !== null}
+                  dragging={dragKeyRef.current === we.id}
+                  dragTranslate={dragTranslate}
+                  panHandlers={dragPan.panHandlers}
+                  onLayoutCard={(top, height) => {
+                    positionsRef.current.set(we.id, { top, height });
+                    if (dragKeyRef.current !== null) setDragFrame((t) => t + 1);
+                  }}
+                  onDragStart={() => beginDrag(we.id, index)}
+                  onRequestPlateCalculator={openPlates}
+                />
+              ))
+            )}
 
-          {active.exercises.length > 0 ? (
+            {active.exercises.length > 0 ? (
+              <Button
+                label="Add exercise"
+                variant="secondary"
+                onPress={() =>
+                  navigation.navigate('ExercisePicker', { mode: 'workout', targetId: 'active' })
+                }
+                style={{ marginTop: spacing.sm }}
+              />
+            ) : null}
+
+            <Pressable
+              onPress={() => setEditing('notes')}
+              accessibilityRole="button"
+              accessibilityLabel="Workout notes"
+              style={{ marginTop: spacing.lg }}
+            >
+              <Caption>WORKOUT NOTES</Caption>
+              <Body muted style={{ marginTop: 2 }}>
+                {active.workout?.notes !== null &&
+                active.workout?.notes !== undefined &&
+                active.workout.notes.length > 0
+                  ? active.workout.notes
+                  : 'Tap to add a note about this session.'}
+              </Body>
+            </Pressable>
+
             <Button
-              label="Add exercise"
-              variant="secondary"
-              onPress={() =>
-                navigation.navigate('ExercisePicker', { mode: 'workout', targetId: 'active' })
-              }
-              style={{ marginTop: spacing.sm }}
+              label="Discard workout"
+              variant="ghost"
+              onPress={confirmDiscard}
+              style={{ marginTop: spacing.lg }}
+            />
+          </ScrollView>
+
+          {dragLineTop !== null ? (
+            <View
+              pointerEvents="none"
+              style={[
+                styles.dropLine,
+                { top: dragLineTop, backgroundColor: palette.accent },
+              ]}
             />
           ) : null}
-
-          <Pressable
-            onPress={() => setEditing('notes')}
-            accessibilityRole="button"
-            accessibilityLabel="Workout notes"
-            style={{ marginTop: spacing.lg }}
-          >
-            <Caption>WORKOUT NOTES</Caption>
-            <Body muted style={{ marginTop: 2 }}>
-              {active.workout?.notes !== null &&
-              active.workout?.notes !== undefined &&
-              active.workout.notes.length > 0
-                ? active.workout.notes
-                : 'Tap to add a note about this session.'}
-            </Body>
-          </Pressable>
-
-          <Button
-            label="Discard workout"
-            variant="ghost"
-            onPress={confirmDiscard}
-            style={{ marginTop: spacing.lg }}
-          />
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
 
       <PlateCalculatorSheet
@@ -309,6 +484,7 @@ function useKeepAwakeIfEnabled(enabled: boolean): void {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  screen: { flex: 1 },
   header: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
@@ -316,4 +492,11 @@ const styles = StyleSheet.create({
   },
   finish: { minHeight: 38, paddingHorizontal: spacing.xl },
   scroll: { padding: spacing.md, paddingBottom: spacing.xxl },
+  dropLine: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    height: 2,
+    borderRadius: 2,
+  },
 });

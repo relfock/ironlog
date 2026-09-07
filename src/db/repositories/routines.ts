@@ -404,7 +404,7 @@ export async function addRoutineSet(
 
 export async function updateRoutineSet(
   id: string,
-  patch: Partial<Omit<RoutineSetData, 'id' | 'sortOrder'>>,
+  patch: Partial<Omit<RoutineSetData, 'id'>>,
 ): Promise<void> {
   await db
     .update(routineSets)
@@ -419,6 +419,130 @@ export async function deleteRoutineSet(id: string): Promise<void> {
     .set({ deleted: true, updatedAt: Date.now(), dirty: true })
     .where(eq(routineSets.id, id));
   await recordChange('routine_sets', id, 'delete');
+}
+
+// ---------------------------------------------------------------------------
+// Draft-based routine editor
+// ---------------------------------------------------------------------------
+
+export interface DraftSetData {
+  readonly key: string;
+  readonly dbId?: string;
+  readonly setType: SetType;
+  readonly targetWeightKg: number | null;
+  readonly targetReps: number | null;
+  readonly targetRepsMax: number | null;
+  readonly targetDurationSec: number | null;
+  readonly targetDistanceM: number | null;
+  readonly targetRpe: number | null;
+}
+
+export interface DraftExerciseData {
+  readonly key: string;
+  readonly dbId?: string;
+  readonly exerciseId: string;
+  readonly exerciseName: string;
+  readonly trackingType: TrackingType;
+  readonly artKey: string | null;
+  readonly primaryMuscles: readonly string[];
+  readonly secondaryMuscles: readonly string[];
+  readonly supersetGroup: number | null;
+  readonly restSec: number | null;
+  readonly notes: string | null;
+  readonly sets: readonly DraftSetData[];
+}
+
+export interface DraftRoutineData {
+  readonly name: string;
+  readonly exercises: readonly DraftExerciseData[];
+}
+
+/** Apply a draft to the DB, diffing against the current routine on disk. */
+export async function saveRoutineDraft(
+  routineId: string,
+  draft: DraftRoutineData,
+): Promise<void> {
+  await updateRoutineMeta(routineId, { name: draft.name });
+
+  const current = await loadRoutine(routineId);
+  if (current === null) return;
+
+  // Remove DB exercises that are no longer in the draft.
+  const draftDbIds = new Set<string>(
+    draft.exercises.filter((e) => e.dbId !== undefined).map((e) => e.dbId!),
+  );
+  for (const re of current.exercises) {
+    if (!draftDbIds.has(re.id)) {
+      await removeRoutineExercise(re.id);
+    }
+  }
+
+  // Process each draft exercise.
+  const finalOrder: { id: string; sortOrder: number; supersetGroup: number | null }[] = [];
+  let idx = 0;
+  for (const de of draft.exercises) {
+    let routineExerciseId = de.dbId ?? null;
+
+    if (routineExerciseId !== null) {
+      await updateRoutineExercise(routineExerciseId, {
+        restSec: de.restSec,
+        supersetGroup: de.supersetGroup,
+      });
+    } else {
+      routineExerciseId = await addExerciseToRoutine(routineId, de.exerciseId, idx, {
+        restSec: de.restSec,
+        setCount: 0,
+      });
+      await updateRoutineExercise(routineExerciseId, { supersetGroup: de.supersetGroup });
+    }
+
+    // Sync sets.
+    const currentSets = current.exercises.find((e) => e.id === routineExerciseId)?.sets ?? [];
+    const currentSetMap = new Map(currentSets.map((s) => [s.id, s]));
+    const usedIds = new Set<string>();
+
+    for (const ds of de.sets) {
+      const si = de.sets.indexOf(ds);
+      if (ds.dbId !== undefined && currentSetMap.has(ds.dbId)) {
+        await updateRoutineSet(ds.dbId, {
+          sortOrder: si,
+          setType: ds.setType,
+          targetWeightKg: ds.targetWeightKg,
+          targetReps: ds.targetReps,
+          targetRepsMax: ds.targetRepsMax,
+          targetDurationSec: ds.targetDurationSec,
+          targetDistanceM: ds.targetDistanceM,
+          targetRpe: ds.targetRpe,
+        });
+        usedIds.add(ds.dbId);
+      } else {
+        await addRoutineSet(routineExerciseId, si, {
+          setType: ds.setType,
+          targetWeightKg: ds.targetWeightKg,
+          targetReps: ds.targetReps,
+          targetRepsMax: ds.targetRepsMax,
+          targetDurationSec: ds.targetDurationSec,
+          targetDistanceM: ds.targetDistanceM,
+          targetRpe: ds.targetRpe,
+        });
+      }
+    }
+
+    for (const s of currentSets) {
+      if (!usedIds.has(s.id)) {
+        await deleteRoutineSet(s.id);
+      }
+    }
+
+    finalOrder.push({
+      id: routineExerciseId,
+      sortOrder: idx,
+      supersetGroup: de.supersetGroup,
+    });
+    idx++;
+  }
+
+  await reorderRoutineExercises(finalOrder);
 }
 
 /** Turn a finished workout into a reusable routine. */

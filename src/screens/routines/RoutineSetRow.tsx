@@ -1,15 +1,10 @@
-import React, { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { DurationField } from '@/components/DurationField';
 import { NumberField } from '@/components/NumberField';
 import { SetTypeBadge } from '@/components/SetTypeBadge';
 import { SetTypeSheet } from '@/components/SetTypeSheet';
-import {
-  deleteRoutineSet,
-  updateRoutineSet,
-  type RoutineExerciseData,
-  type RoutineSetData,
-} from '@/db/repositories/routines';
+import type { DraftExerciseData, DraftSetData } from '@/db/repositories/routines';
 import { hasDistance, hasDuration, hasReps, hasWeight } from '@/domain/types';
 import { distanceToMetres, fromKg, metresToDistance, toKg } from '@/domain/units';
 import { useSettings } from '@/stores/RootStore';
@@ -23,32 +18,43 @@ import { fontSize, radius, spacing } from '@/theme/tokens';
  * and `targetRepsMax` the optional upper one, so a routine can say "8–12"
  * rather than pretending the user committed to an exact number.
  */
+
+/** Fixed column widths, shared with the editor's header so boxes line up. */
+export const COL_BADGE = 34;
+export const COL_WEIGHT = 76;
+export const COL_UNIT = 76;
+export const COL_REPS = 96;
+
 export function RoutineSetRow({
-  re,
-  set,
+  draftExercise,
+  draftSet,
   workingIndex,
-  onChanged,
+  onPatchSet,
+  onRemoveSet,
+  repsMode,
 }: {
-  re: RoutineExerciseData;
-  set: RoutineSetData;
+  draftExercise: DraftExerciseData;
+  draftSet: DraftSetData;
   workingIndex: number;
-  onChanged: () => void;
+  onPatchSet: (key: string, patch: Partial<DraftSetData>) => void;
+  onRemoveSet: (setKey: string) => void;
+  repsMode: 'single' | 'range';
 }) {
   const palette = usePalette();
   const settings = useSettings();
   const { weightUnit, distanceUnit } = settings.values;
-  const t = re.trackingType;
+  const t = draftExercise.trackingType;
 
   const [setSheetOpen, setSetSheetOpen] = useState(false);
 
-  const patch = useCallback(
-    (p: Partial<RoutineSetData>) => {
-      void updateRoutineSet(set.id, p).then(onChanged);
-    },
-    [set.id, onChanged],
-  );
-
   const chooseType = () => setSetSheetOpen(true);
+
+  const hasW = hasWeight(t);
+  const hasU = hasDistance(t) || hasDuration(t);
+
+  // The reps cell is fixed-width when a later column (weight or unit) absorbs
+  // the remaining row space; when it is the only flexible column it fills.
+  const repsCellStyle = hasW || hasU ? styles.repsCell : styles.repsCellFill;
 
   const remove = () => {
     Alert.alert('Remove set?', undefined, [
@@ -56,97 +62,131 @@ export function RoutineSetRow({
       {
         text: 'Remove',
         style: 'destructive',
-        onPress: () => void deleteRoutineSet(set.id).then(onChanged),
+        onPress: () => onRemoveSet(draftSet.key),
       },
     ]);
   };
 
   return (
-    <Pressable onLongPress={remove} style={styles.row} accessibilityLabel={`Planned set ${workingIndex}`}>
-      <SetTypeBadge setType={set.setType} workingIndex={workingIndex} onPress={chooseType} />
+    <View style={styles.row}>
+      <SetTypeBadge
+        setType={draftSet.setType}
+        workingIndex={workingIndex}
+        onPress={chooseType}
+        pop
+      />
 
       {hasWeight(t) ? (
-        <View style={styles.cell}>
+        <View style={styles.weightCell}>
           <NumberField
-            value={set.targetWeightKg === null ? null : fromKg(set.targetWeightKg, weightUnit)}
+            value={
+              draftSet.targetWeightKg === null
+                ? null
+                : fromKg(draftSet.targetWeightKg, weightUnit)
+            }
             onChange={(v) =>
-              patch({ targetWeightKg: v === null ? null : toKg(v, weightUnit) })
+              onPatchSet(draftSet.key, {
+                targetWeightKg: v === null ? null : toKg(v, weightUnit),
+              })
             }
             placeholder={weightUnit}
             accessibilityLabel={`Target weight in ${weightUnit}`}
+            style={styles.outlined}
           />
         </View>
       ) : null}
 
       {hasReps(t) ? (
-        <>
-          <View style={styles.cell}>
-            <NumberField
-              value={set.targetReps}
-              onChange={(v) => patch({ targetReps: v === null ? null : Math.round(v) })}
-              decimals={0}
-              placeholder="reps"
-              accessibilityLabel="Target reps, lower bound"
-            />
+        <View style={repsCellStyle}>
+          {/* Same container and inner layout in BOTH modes, so a single "REPS"
+              box is exactly as wide as min + "to" + max combined and toggling
+              between REP RANGE and REPS never moves anything. */}
+          <View style={styles.repsInner}>
+            {repsMode === 'single' ? (
+              <View style={styles.repsField}>
+                <NumberField
+                  value={draftSet.targetReps}
+                  onChange={(v) =>
+                    onPatchSet(draftSet.key, { targetReps: v === null ? null : Math.round(v) })
+                  }
+                  decimals={0}
+                  placeholder="reps"
+                  accessibilityLabel="Target reps"
+                  style={styles.outlined}
+                />
+              </View>
+            ) : (
+              <>
+                <View style={styles.repsField}>
+                  <NumberField
+                    value={draftSet.targetReps}
+                    onChange={(v) =>
+                      onPatchSet(draftSet.key, { targetReps: v === null ? null : Math.round(v) })
+                    }
+                    decimals={0}
+                    placeholder="min"
+                    accessibilityLabel="Target reps, lower bound"
+                    style={styles.outlined}
+                  />
+                </View>
+                <Text style={{ color: palette.textFaint, fontSize: fontSize.sm }}>to</Text>
+                <View style={styles.repsField}>
+                  <NumberField
+                    value={draftSet.targetRepsMax}
+                    onChange={(v) =>
+                      onPatchSet(draftSet.key, {
+                        targetRepsMax: v === null ? null : Math.round(v),
+                      })
+                    }
+                    decimals={0}
+                    placeholder="max"
+                    accessibilityLabel="Target reps, upper bound"
+                    style={styles.outlined}
+                  />
+                </View>
+              </>
+            )}
           </View>
-          <Text style={{ color: palette.textFaint, fontSize: fontSize.sm }}>–</Text>
-          <View style={styles.cell}>
-            <NumberField
-              value={set.targetRepsMax}
-              onChange={(v) => patch({ targetRepsMax: v === null ? null : Math.round(v) })}
-              decimals={0}
-              placeholder="max"
-              accessibilityLabel="Target reps, upper bound (optional)"
-            />
-          </View>
-        </>
+        </View>
       ) : null}
 
       {hasDistance(t) ? (
-        <View style={styles.cell}>
+        <View style={styles.unitCell}>
           <NumberField
             value={
-              set.targetDistanceM === null
+              draftSet.targetDistanceM === null
                 ? null
-                : metresToDistance(set.targetDistanceM, distanceUnit)
+                : metresToDistance(draftSet.targetDistanceM, distanceUnit)
             }
             onChange={(v) =>
-              patch({
+              onPatchSet(draftSet.key, {
                 targetDistanceM: v === null ? null : distanceToMetres(v, distanceUnit),
               })
             }
             placeholder={distanceUnit}
             accessibilityLabel={`Target distance in ${distanceUnit}`}
+            style={styles.outlined}
           />
         </View>
       ) : null}
 
       {hasDuration(t) ? (
-        <View style={styles.cell}>
+        <View style={styles.unitCell}>
           <DurationField
-            value={set.targetDurationSec}
-            onChange={(v) => patch({ targetDurationSec: v })}
+            value={draftSet.targetDurationSec}
+            onChange={(v) => onPatchSet(draftSet.key, { targetDurationSec: v })}
             accessibilityLabel="Target duration"
+            style={styles.outlined}
           />
         </View>
       ) : null}
 
-      <Pressable
-        onPress={remove}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel="Remove set"
-        style={styles.remove}
-      >
-        <Text style={{ color: palette.textFaint, fontSize: fontSize.lg }}>✕</Text>
-      </Pressable>
-
       <SetTypeSheet
         visible={setSheetOpen}
-        current={set.setType}
+        current={draftSet.setType}
         onSelect={(st) => {
           setSetSheetOpen(false);
-          patch({ setType: st });
+          onPatchSet(draftSet.key, { setType: st });
         }}
         onRemove={() => {
           setSetSheetOpen(false);
@@ -154,7 +194,7 @@ export function RoutineSetRow({
         }}
         onClose={() => setSetSheetOpen(false)}
       />
-    </Pressable>
+    </View>
   );
 }
 
@@ -166,6 +206,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: radius.sm,
   },
-  cell: { flex: 1, minWidth: 48 },
-  remove: { width: 30, alignItems: 'center' },
+  weightCell: { flex: 1, minWidth: COL_WEIGHT, flexGrow: 1 },
+  unitCell: { flex: 1, minWidth: COL_UNIT, flexGrow: 1 },
+  repsCell: { width: COL_REPS },
+  repsCellFill: { flex: 1, minWidth: COL_REPS },
+  repsInner: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  repsField: { flex: 1, minWidth: 0 },
+  outlined: { borderWidth: 1 },
 });

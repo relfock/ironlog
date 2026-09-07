@@ -100,24 +100,26 @@ export function RecoveryInfoModal({
 
             <Text style={[styles.subTitle, { color: palette.text }]}>The evidence</Text>
             <Text style={[styles.paragraph, { color: palette.textMuted }]}>
-              • Morán-Navarro et al. (2017), Eur J Appl Physiol — after moderate-to-hard lower-limb
-              sessions to failure, neuromuscular performance took 48–72h to restore; failure-based
-              training recovered slower than submaximal training.{"\n\n"}
-              • Beardsley et al. (2022) — recovery time tracks muscle fibre type: slow-twitch-loaded
+              • Morán-Navarro et al. (2017), J Strength Cond Res — after moderate-to-hard
+              sessions, neuromuscular performance was restored within 48–72h; training to failure
+              recovered slower than stopping short of it. This is why the map reads green around
+              one recovery window after a normal session.{"\n\n"}
+              • Beardsley et al. — recovery time tracks muscle fibre type: slow-twitch-loaded
               muscles (calves, abs) regenerate faster than fast-twitch, large muscles.{"\n\n"}
-              • Damas et al. (2015), J Appl Physiol — the muscle-protein synthesis window lengthens
+              • Damas et al. (2015), Sports Med — the muscle-protein synthesis window lengthens
               with age, which is why older trainees need longer.{"\n\n"}
-              • Roberts et al. (2023) — women recover measurably faster (~15%) at equal relative
-              effort.
+              • Sex — controlled studies on acute recovery in men vs women are mixed; any faster
+              recovery is modest, so sex only nudges the windows slightly.
             </Text>
 
             <Text style={[styles.disclaimer, { color: palette.textFaint }]}>
-              Fatigue counts effective work-set equivalents and decays exponentially on each
-              muscle's curve (time constant = half the window). The percentage scale is anchored
-              at a reference load of 2.4 effective sets, so a session of that size reads as
-              ~0% recovered and zero residual fatigue as 100%. This is general guidance from the
-              training literature, not a medical or personalised prescription — individual
-              variation of ±20% is normal.
+              "Recovered" (green) means force output is back near baseline — typically within the
+              declared window (~48h chest, ~72h back/quads) for a normal session. Very heavy or
+              to-failure days can stay amber longer, and any single session's fatigue fades
+              exponentially, so "100% recovered" is ~8% of a heavy day's load. The 0–100% scale
+              and zone labels are an approximation anchored to these windows, not a prediction.
+              This is general guidance from the training literature, not a medical or
+              personalised prescription — individual variation of ±20% is normal.
             </Text>
           </ScrollView>
 

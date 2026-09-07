@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { usePalette } from '@/theme/ThemeProvider';
 import { fontSize, radius, spacing } from '@/theme/tokens';
 
@@ -27,29 +27,36 @@ export function SpanSheet<T extends string>({
 
           <Text style={[styles.title, { color: palette.text }]}>Time span</Text>
 
-          <View style={styles.list}>
-            {options.map((o) => {
-              const on = o.key === current;
-              return (
-                <Pressable
-                  key={o.key}
-                  onPress={() => onSelect(o.key)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
-                  style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-                >
-                  <Text style={[styles.rowText, { color: on ? palette.accent : palette.text }]}>
-                    {o.label}
-                  </Text>
-                  {on ? (
-                    <View style={[styles.check, { borderColor: palette.accent, backgroundColor: palette.accent }]}>
-                      <Text style={[styles.checkMark, { color: palette.accentText }]}>✓</Text>
-                    </View>
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </View>
+          <ScrollView style={styles.bodyScroll} showsVerticalScrollIndicator={false}>
+            <View style={styles.list}>
+              {options.map((o) => {
+                const on = o.key === current;
+                return (
+                  <Pressable
+                    key={o.key}
+                    onPress={() => onSelect(o.key)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                    style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+                  >
+                    <Text style={[styles.rowText, { color: on ? palette.accent : palette.text }]}>
+                      {o.label}
+                    </Text>
+                    {on ? (
+                      <View
+                        style={[
+                          styles.check,
+                          { borderColor: palette.accent, backgroundColor: palette.accent },
+                        ]}
+                      >
+                        <Text style={[styles.checkMark, { color: palette.accentText }]}>✓</Text>
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -63,6 +70,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.lg,
     padding: spacing.xl,
     paddingBottom: spacing.xxl,
+    maxHeight: '88%',
   },
   grabber: {
     alignSelf: 'center',
@@ -72,6 +80,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: { fontSize: fontSize.lg, fontWeight: '700', marginBottom: spacing.sm },
+  bodyScroll: { flexShrink: 1, minHeight: 0 },
   list: { marginTop: spacing.xs },
   row: {
     flexDirection: 'row',

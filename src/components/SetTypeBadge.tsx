@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { SetType } from '@/domain/types';
 import { usePalette } from '@/theme/ThemeProvider';
 import { fontSize, radius } from '@/theme/tokens';
@@ -22,10 +22,12 @@ export function SetTypeBadge({
   setType,
   workingIndex,
   onPress,
+  pop = false,
 }: {
   setType: SetType;
   workingIndex: number;
   onPress?: () => void;
+  pop?: boolean;
 }) {
   const palette = usePalette();
   const color =
@@ -36,6 +38,32 @@ export function SetTypeBadge({
         : setType === 'failure'
           ? palette.setTypeFailure
           : palette.textMuted;
+
+  if (pop) {
+    return (
+      <Pressable
+        onPress={onPress}
+        disabled={!onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`Set type: ${setType}. Tap to change.`}
+        hitSlop={8}
+      >
+        <View
+          style={[
+            styles.popBadge,
+            {
+              backgroundColor: color + '18',
+              borderColor: color + '40',
+            },
+          ]}
+        >
+          <Text style={{ color, fontSize: fontSize.sm, fontWeight: '800' }}>
+            {setTypeLabel(setType, workingIndex)}
+          </Text>
+        </View>
+      </Pressable>
+    );
+  }
 
   return (
     <Pressable
@@ -60,5 +88,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.sm,
+  },
+  popBadge: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });

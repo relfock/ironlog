@@ -8,7 +8,9 @@
  * is still correct the instant the app is foregrounded.
  */
 import { makeAutoObservable, runInAction } from 'mobx';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
+import restDing from '../../assets/rest-ding.wav';
 import {
   adjust,
   isExpired,
@@ -39,6 +41,10 @@ export class TimerStore {
 
   private intervalId: ReturnType<typeof setInterval> | null = null;
   onExpire: (() => void) | null = null;
+
+  /** Lazily-created "rest done" chime; kept so it can be replayed. */
+  private ding: AudioPlayer | null = null;
+  private dingReady: Promise<void> | null = null;
 
   constructor() {
     makeAutoObservable(this, {}, { autoBind: true });
@@ -145,6 +151,34 @@ export class TimerStore {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
       () => {},
     );
+    this.playDing();
     this.onExpire?.();
+  }
+
+  private ensureDing(): Promise<void> {
+    if (this.dingReady !== null) return this.dingReady;
+    this.dingReady = (async () => {
+      try {
+        await setAudioModeAsync({ playsInSilentMode: true });
+        this.ding = createAudioPlayer(restDing);
+        this.ding.volume = 1;
+      } catch {
+        // Falling back to haptics alone is fine.
+        this.ding = null;
+      }
+    })();
+    return this.dingReady;
+  }
+
+  private playDing(): void {
+    void this.ensureDing().then(() => {
+      if (this.ding === null) return;
+      try {
+        void this.ding.seekTo(0);
+        this.ding.play();
+      } catch {
+        // No-op: the timer already fired, a silent rest just isn't announced.
+      }
+    });
   }
 }
