@@ -11,10 +11,13 @@ import { MuscleMap } from '@/components/MuscleMap';
 import { NumberField } from '@/components/NumberField';
 import { ActionSheet } from '@/components/ActionSheet';
 import { PromptModal } from '@/components/PromptModal';
+import { HeartRateChartCard } from '@/components/charts/HeartRateChartCard';
 import { Body, Button, Caption, Card, H1, H2, Pill, Row } from '@/components/ui';
 import { setTypeLabel } from '@/components/SetTypeBadge';
 import { exerciseBySlug } from '@/data/exercises';
 import { createRoutineFromWorkout } from '@/db/repositories/routines';
+import { loadWorkoutHeartRateSamples } from '@/db/repositories/heartRate';
+import type { WorkoutHeartRateSampleRow } from '@/db/schema';
 import {
   deleteSet,
   discardWorkout,
@@ -38,6 +41,7 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'WorkoutDetail'>>();
   const settings = useSettings();
   const [workout, setWorkout] = useState<WorkoutData | null>(null);
+  const [hrSamples, setHrSamples] = useState<WorkoutHeartRateSampleRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState<'name' | 'notes' | null>(null);
@@ -47,6 +51,7 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
 
   const reload = useCallback(() => {
     void loadWorkout(route.params.workoutId).then(setWorkout);
+    void loadWorkoutHeartRateSamples(route.params.workoutId).then(setHrSamples);
   }, [route.params.workoutId]);
 
   const highlightId = route.params.highlightExerciseId;
@@ -70,6 +75,14 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
   );
 
   const unit = settings.values.weightUnit;
+
+  // Classic 220 − age HRmax, only when the birth year has been provided.
+  const estimatedMaxHr = (() => {
+    if (settings.values.birthYear === null) return undefined;
+    const age = new Date().getFullYear() - settings.values.birthYear;
+    if (age <= 0) return undefined;
+    return 220 - age;
+  })();
 
   if (workout === null) {
     return (
@@ -132,6 +145,12 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
             <Stat label="PRs" value={String(workout.prCount)} />
           </Row>
         </Card>
+
+        {hrSamples.length >= 1 ? (
+          <Card style={{ marginTop: spacing.md }}>
+            <HeartRateChartCard samples={hrSamples} maxHr={estimatedMaxHr} />
+          </Card>
+        ) : null}
 
         {editing ? (
           <Card style={{ marginTop: spacing.md }}>

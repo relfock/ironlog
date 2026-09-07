@@ -40,10 +40,12 @@ import {
   type WorkoutExerciseData,
   type WorkoutSetData,
 } from '@/db/repositories/workouts';
+import { saveWorkoutHeartRateSamples } from '@/db/repositories/heartRate';
 import { detectPrs, headlinePr, type PrCandidate, type PrKind } from '@/domain/prDetection';
 import { setVolumeKg, totalVolumeKg } from '@/domain/volume';
 import type { LoggedSet, SetType } from '@/domain/types';
 import { setTypeCountsForStats } from '@/domain/types';
+import type { HeartRateStore } from './HeartRateStore';
 import type { SettingsStore } from './SettingsStore';
 import type { TimerStore } from './TimerStore';
 
@@ -83,6 +85,7 @@ export class ActiveWorkoutStore {
   constructor(
     private readonly settings: SettingsStore,
     private readonly timer: TimerStore,
+    private readonly heartRate: HeartRateStore,
   ) {
     makeAutoObservable<this, 'pendingWrites' | 'recordBooks'>(
       this,
@@ -145,6 +148,7 @@ export class ActiveWorkoutStore {
     });
     this.timer.setNeedsClock(true);
     await this.hydrateContext();
+    if (this.settings.values.heartRateEnabled) this.heartRate.attachWorkout();
     return true;
   }
 
@@ -169,6 +173,9 @@ export class ActiveWorkoutStore {
     // The elapsed-time display only needs a ticking clock while a workout is open.
     this.timer.setNeedsClock(workout !== null);
     await this.hydrateContext();
+    if (workout !== null && this.settings.values.heartRateEnabled) {
+      this.heartRate.attachWorkout();
+    }
   }
 
   /** Load previous-session values and record books for the current exercises. */
@@ -589,6 +596,14 @@ export class ActiveWorkoutStore {
         countWarmups: this.settings.values.countWarmupsInStats,
         durationSec: this.elapsedSec,
       });
+
+      if (this.settings.values.heartRateEnabled) {
+        const samples = this.heartRate.detachWorkout();
+        if (samples.length > 0) {
+          await saveWorkoutHeartRateSamples(workout.id, samples);
+        }
+      }
+
       runInAction(() => {
         this.workout = null;
         this.previousSets.clear();
@@ -615,6 +630,7 @@ export class ActiveWorkoutStore {
     this.pendingWrites.clear();
 
     await discardWorkout(workout.id);
+    this.heartRate.detachWorkout();
     runInAction(() => {
       this.workout = null;
       this.previousSets.clear();

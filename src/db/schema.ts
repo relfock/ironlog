@@ -218,6 +218,9 @@ export const workoutSets = sqliteTable(
     setType: text('set_type').notNull().default('normal'),
     weightKg: real('weight_kg'),
     reps: integer('reps'),
+    /** Planned rep range from the originating routine set (null = logged reps only). */
+    targetReps: integer('target_reps'),
+    targetRepsMax: integer('target_reps_max'),
     durationSec: integer('duration_sec'),
     distanceM: real('distance_m'),
     rpe: real('rpe'),
@@ -267,6 +270,30 @@ export const bodyMeasurements = sqliteTable(
     ...syncColumns,
   },
   (t) => [index('body_measurements_kind_idx').on(t.kind, t.measuredAt)],
+);
+
+/**
+ * A raw heart-rate reading captured during a workout.
+ *
+ * Written as a batch when the workout finishes; the live sampler only ever
+ * buffers readings in memory. Downsampled to ~1 sample / 5 s before insert.
+ */
+export const workoutHeartRateSamples = sqliteTable(
+  'workout_heart_rate_samples',
+  {
+    id: text('id').primaryKey(),
+    workoutId: text('workout_id')
+      .notNull()
+      .references(() => workouts.id, { onDelete: 'cascade' }),
+    /** Epoch-ms of the wall-clock reading (not workout-relative). */
+    recordedAt: integer('recorded_at').notNull(),
+    /** Beats per minute; float because the byte parser may average. */
+    bpm: real('bpm').notNull(),
+    ...syncColumns,
+  },
+  (t) => [
+    index('workout_hr_workout_idx').on(t.workoutId, t.recordedAt),
+  ],
 );
 
 /** Key/value app settings. Values are JSON-encoded. */
@@ -340,6 +367,7 @@ export const workoutsRelations = relations(workouts, ({ one, many }) => ({
     references: [routines.id],
   }),
   exercises: many(workoutExercises),
+  heartRateSamples: many(workoutHeartRateSamples),
 }));
 
 export const workoutExercisesRelations = relations(
@@ -364,6 +392,16 @@ export const workoutSetsRelations = relations(workoutSets, ({ one }) => ({
   }),
 }));
 
+export const workoutHeartRateSamplesRelations = relations(
+  workoutHeartRateSamples,
+  ({ one }) => ({
+    workout: one(workouts, {
+      fields: [workoutHeartRateSamples.workoutId],
+      references: [workouts.id],
+    }),
+  }),
+);
+
 export const exercisesRelations = relations(exercises, ({ many }) => ({
   personalRecords: many(personalRecords),
 }));
@@ -385,3 +423,4 @@ export type WorkoutExerciseRow = typeof workoutExercises.$inferSelect;
 export type WorkoutSetRow = typeof workoutSets.$inferSelect;
 export type PersonalRecordRow = typeof personalRecords.$inferSelect;
 export type BodyMeasurementRow = typeof bodyMeasurements.$inferSelect;
+export type WorkoutHeartRateSampleRow = typeof workoutHeartRateSamples.$inferSelect;

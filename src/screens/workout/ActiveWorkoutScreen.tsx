@@ -18,12 +18,13 @@ import { PlateCalculatorSheet } from '@/components/PlateCalculatorSheet';
 import { PrBanner } from '@/components/PrBanner';
 import { PromptModal } from '@/components/PromptModal';
 import { RestTimerBar } from '@/components/RestTimerBar';
+import { HeartRateSheet } from '@/components/HeartRateSheet';
 import { Body, Button, Caption, EmptyState, Row } from '@/components/ui';
 import { WorkoutExerciseCard } from './WorkoutExerciseCard';
 import { formatDuration, formatWeight } from '@/domain/units';
-import { useActiveWorkout, useSettings } from '@/stores/RootStore';
+import { useActiveWorkout, useHeartRate, useSettings } from '@/stores/RootStore';
 import { usePalette } from '@/theme/ThemeProvider';
-import { fontSize, spacing } from '@/theme/tokens';
+import { fontSize, radius, spacing } from '@/theme/tokens';
 
 /**
  * The live logger.
@@ -38,9 +39,11 @@ export const ActiveWorkoutScreen = observer(function ActiveWorkoutScreen() {
   const navigation = useNavigation();
   const active = useActiveWorkout();
   const settings = useSettings();
+  const heartRate = useHeartRate();
   const [plateTarget, setPlateTarget] = useState<number | null>(null);
   const [plateOpen, setPlateOpen] = useState(false);
   const [editing, setEditing] = useState<'name' | 'notes' | null>(null);
+  const [hrOpen, setHrOpen] = useState(false);
 
   useKeepAwakeIfEnabled(settings.values.keepAwake);
 
@@ -288,6 +291,39 @@ export const ActiveWorkoutScreen = observer(function ActiveWorkoutScreen() {
           />
           <Stat label="SETS" value={`${active.completedSetCount}/${active.totalSetCount}`} />
         </Row>
+
+        {settings.values.heartRateEnabled ? (
+          <Pressable
+            onPress={() => setHrOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={
+              heartRate.liveBpm !== null
+                ? `Heart rate ${heartRate.liveBpm} beats per minute. Tap to change monitor.`
+                : 'Heart rate. Tap to connect a monitor.'
+            }
+            style={[
+              styles.hrPill,
+              {
+                borderColor: palette.border,
+                backgroundColor: heartRate.connected ? palette.surfaceRaised : palette.surface,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.hrDot,
+                { backgroundColor: heartRate.connected ? palette.success : palette.textFaint },
+              ]}
+            />
+            <Text style={{ color: palette.text, fontSize: fontSize.sm, fontWeight: '700' }}>
+              {heartRate.liveBpm !== null
+                ? `${heartRate.liveBpm} bpm`
+                : heartRate.connected
+                  ? 'Heart rate monitor connected'
+                  : 'Heart rate'}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <RestTimerBar />
@@ -406,6 +442,8 @@ export const ActiveWorkoutScreen = observer(function ActiveWorkoutScreen() {
         onClose={() => setPlateOpen(false)}
       />
 
+      <HeartRateSheet visible={hrOpen} onClose={() => setHrOpen(false)} />
+
       <PromptModal
         visible={editing === 'name'}
         title="Workout name"
@@ -498,5 +536,21 @@ const styles = StyleSheet.create({
     right: spacing.md,
     height: 2,
     borderRadius: 2,
+  },
+  hrPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  hrDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 });

@@ -62,6 +62,10 @@ export interface AppSettings {
   prNotificationsEnabled: boolean;
   /** 12. (units — see above) */
 
+  // --- Heart rate ---
+  /** Sample live BLE heart rate into finished workouts. */
+  heartRateEnabled: boolean;
+
   // --- Analytics ---
   oneRepMaxFormula: OneRepMaxFormula;
   weekStart: WeekStart;
@@ -93,6 +97,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   smartSupersetScrolling: true,
   inlineTimerEnabled: true,
   prNotificationsEnabled: true,
+  heartRateEnabled: false,
   oneRepMaxFormula: 'epley',
   weekStart: 1,
   weeklyWorkoutGoal: 3,

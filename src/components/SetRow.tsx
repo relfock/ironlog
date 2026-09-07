@@ -138,7 +138,7 @@ export const SetRow = observer(function SetRow({
             onChange={(v) => active.editField(set.id, 'reps', v === null ? null : Math.round(v))}
             onBlur={() => active.flushField(set.id)}
             decimals={0}
-            placeholder={previous?.reps != null ? String(previous.reps) : 'reps'}
+            placeholder={repsPlaceholder(set, previous)}
             accessibilityLabel="Reps"
           />
         </View>
@@ -244,6 +244,18 @@ function describePrevious(
   if (previous.durationSec !== null) bits.push(formatDuration(previous.durationSec));
   if (previous.distanceM !== null) bits.push(`${Math.round(previous.distanceM)}m`);
   return bits.length > 0 ? bits.join(' ') : '—';
+}
+
+/**
+ * Ghost text for the reps box. When the originating routine set planned a rep
+ * RANGE, show that range ("8-12") so the box reads as a target; otherwise fall
+ * back to last session's reps like every other field.
+ */
+function repsPlaceholder(set: WorkoutSetData, previous: WorkoutSetData | null): string {
+  if (set.targetReps !== null && set.targetRepsMax !== null && set.targetRepsMax > set.targetReps) {
+    return `${set.targetReps}-${set.targetRepsMax}`;
+  }
+  return previous?.reps != null ? String(previous.reps) : 'reps';
 }
 
 /** Tapping the ghost text copies last session's numbers into this set. */

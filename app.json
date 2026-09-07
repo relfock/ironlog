@@ -58,6 +58,12 @@
       "expo-sharing",
       "./plugins/withGradleMemory",
       [
+        "@sfourdrinier/react-native-ble-plx",
+        {
+          "neverForLocation": true
+        }
+      ],
+      [
         "expo-video",
         {
           "supportsBackgroundPlayback": false,

@@ -1,5 +1,6 @@
 import React, { createContext, useContext } from 'react';
 import { ActiveWorkoutStore } from './ActiveWorkoutStore';
+import { HeartRateStore } from './HeartRateStore';
 import { SettingsStore } from './SettingsStore';
 import { TimerStore } from './TimerStore';
 
@@ -11,10 +12,15 @@ import { TimerStore } from './TimerStore';
 export class RootStore {
   readonly settings = new SettingsStore();
   readonly timer = new TimerStore();
+  readonly heartRate = new HeartRateStore(this.settings);
   readonly activeWorkout: ActiveWorkoutStore;
 
   constructor() {
-    this.activeWorkout = new ActiveWorkoutStore(this.settings, this.timer);
+    this.activeWorkout = new ActiveWorkoutStore(
+      this.settings,
+      this.timer,
+      this.heartRate,
+    );
   }
 
   async initialise(): Promise<void> {
@@ -26,6 +32,7 @@ export class RootStore {
 
   dispose(): void {
     this.timer.stop();
+    this.heartRate.dispose();
   }
 }
 
@@ -57,4 +64,8 @@ export function useTimer(): TimerStore {
 
 export function useActiveWorkout(): ActiveWorkoutStore {
   return useContext(StoreContext).activeWorkout;
+}
+
+export function useHeartRate(): HeartRateStore {
+  return useContext(StoreContext).heartRate;
 }

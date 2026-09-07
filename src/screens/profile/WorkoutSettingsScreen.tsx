@@ -109,6 +109,15 @@ export const WorkoutSettingsScreen = observer(function WorkoutSettingsScreen() {
         />
       </SettingsSection>
 
+      <SettingsSection title="Heart rate">
+        <SettingsToggle
+          label="Heart rate monitor"
+          description="Track live heart rate on Android via a BLE monitor (Whoop broadcast, Polar, Wahoo) and graph it in finished workouts"
+          value={v.heartRateEnabled}
+          onChange={(x) => void settings.set('heartRateEnabled', x)}
+        />
+      </SettingsSection>
+
       <SettingsSection title="Logging">
         <SettingsToggle
           label="RPE tracking"

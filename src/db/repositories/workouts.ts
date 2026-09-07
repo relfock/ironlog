@@ -22,6 +22,9 @@ export interface WorkoutSetData {
   readonly setType: SetType;
   readonly weightKg: number | null;
   readonly reps: number | null;
+  /** Planned rep range inherited from the routine set, if any. */
+  readonly targetReps: number | null;
+  readonly targetRepsMax: number | null;
   readonly durationSec: number | null;
   readonly distanceM: number | null;
   readonly rpe: number | null;
@@ -128,6 +131,8 @@ export async function loadWorkout(workoutId: string): Promise<WorkoutData | null
       setType: s.setType as SetType,
       weightKg: s.weightKg,
       reps: s.reps,
+      targetReps: s.targetReps,
+      targetRepsMax: s.targetRepsMax,
       durationSec: s.durationSec,
       distanceM: s.distanceM,
       rpe: s.rpe,
@@ -332,7 +337,12 @@ export async function startWorkoutFromRoutine(
         sortOrder: rs.sortOrder,
         setType: rs.setType,
         weightKg: rs.targetWeightKg,
-        reps: rs.targetReps,
+        // A single target becomes the pre-filled reps (as today); a RANGE is
+        // kept as a range: reps stays null and the box shows "8-12" until the
+        // user types what they actually did.
+        reps: rs.targetRepsMax === null ? rs.targetReps : null,
+        targetReps: rs.targetReps,
+        targetRepsMax: rs.targetRepsMax,
         durationSec: rs.targetDurationSec,
         distanceM: rs.targetDistanceM,
         rpe: null,
@@ -692,6 +702,8 @@ export async function getPreviousSets(
       setType: r.s.setType as SetType,
       weightKg: r.s.weightKg,
       reps: r.s.reps,
+      targetReps: r.s.targetReps,
+      targetRepsMax: r.s.targetRepsMax,
       durationSec: r.s.durationSec,
       distanceM: r.s.distanceM,
       rpe: r.s.rpe,
