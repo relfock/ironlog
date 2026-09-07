@@ -12,14 +12,14 @@ import { RecoveryInfoModal } from '@/components/RecoveryInfoModal';
 import { RecoveryLegend } from '@/components/RecoveryLegend';
 import { WeekCalendarSheet } from '@/components/WeekCalendarSheet';
 import { Body, Button, Caption, Card, H1, H2 } from '@/components/ui';
-import { buildHeatmap } from '@/domain/muscleMap';
+import { buildHeatmap, MUSCLE_LABELS } from '@/domain/muscleMap';
 import {
   formatWeekSpan,
   sevenDayWindowStart,
   weekYear,
   WEEK_MS,
 } from '@/domain/streak';
-import { formatDurationCompact } from '@/domain/units';
+import { formatDurationCompact, formatRecoveryTime } from '@/domain/units';
 import { useWorkoutHistory } from '@/hooks/useHistory';
 import { useMuscleRecovery } from '@/hooks/useMuscleRecovery';
 import { useMuscleWeek } from '@/hooks/useMuscleWeek';
@@ -28,6 +28,176 @@ import { usePalette } from '@/theme/ThemeProvider';
 import { buildBodyHeatScale } from '@/theme/heatScale';
 import { buildRecoveryScale } from '@/theme/recoveryScale';
 import { fontSize, radius, spacing } from '@/theme/tokens';
+import {
+  calculateRecoveryProgress,
+  MUSCLE_RECOVERY_HOURS,
+  recoveryLevel,
+  timeUntilRecovered,
+} from '@/domain/muscleRecovery';
+import { weeklySetsToHeatLevel } from '@/domain/trainingVolume';
+import type { Muscle, Sex } from '@/domain/types';
+
+/**
+ * List of muscles currently recovering, with progress bars and time remaining.
+ */
+function RecoveryProgressList({
+  fatigueByMuscle,
+  birthYear,
+  sex,
+  palette,
+  recoveryScale,
+}: {
+  fatigueByMuscle: Map<Muscle, number>;
+  birthYear: number | null;
+  sex: Sex | null;
+  palette: any;
+  recoveryScale: string[];
+}) {
+  const recovering = useMemo(() => {
+    const items = [];
+    for (const [muscle, fatigue] of fatigueByMuscle) {
+      const hours = MUSCLE_RECOVERY_HOURS[muscle];
+      if (hours <= 0) continue;
+
+      const timeMs = timeUntilRecovered(fatigue, hours, birthYear, sex);
+      if (timeMs <= 0) continue;
+
+      const level = recoveryLevel(fatigue);
+      items.push({
+        muscle,
+        label: MUSCLE_LABELS[muscle],
+        fatigue,
+        level,
+        timeMs,
+      });
+    }
+    return items.sort((a, b) => a.timeMs - b.timeMs);
+  }, [fatigueByMuscle, birthYear, sex]);
+
+  if (recovering.length === 0) return null;
+
+  // The visual scale is anchored to the longest possible recovery window (72h)
+  // normalized by the maximum reasonable fatigue (RECOVERY_REFERENCE_FATIGUE).
+  // This ensures 100% bar = 3 days approx, regardless of the muscle.
+  const MAX_TIME_MS = 72 * 3600 * 1000;
+
+  return (
+    <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
+      {recovering.map(({ label, timeMs, level }) => {
+        const barWidth = Math.min(1, timeMs / MAX_TIME_MS);
+        return (
+          <View key={label} style={{ gap: spacing.xxs }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontSize: fontSize.sm, fontWeight: '600', color: palette.text }}>
+                {label}
+              </Text>
+              <Text style={{ fontSize: fontSize.xs, color: palette.textFaint }}>
+                {formatRecoveryTime(timeMs)}
+              </Text>
+            </View>
+            <View
+              style={{
+                height: 6,
+                backgroundColor: palette.border,
+                borderRadius: radius.sm,
+                overflow: 'hidden',
+              }}
+            >
+              <View
+                style={{
+                  height: '100%',
+                  backgroundColor: recoveryScale[level - 1],
+                  width: `${barWidth * 100}%`,
+                }}
+              />
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+/**
+ * List of muscles with their weekly volume bars.
+ */
+function VolumeProgressList({
+  setsPerMuscle,
+  palette,
+  heatScale,
+}: {
+  setsPerMuscle: Map<Muscle, number>;
+  palette: any;
+  heatScale: string[];
+}) {
+  const volume = useMemo(() => {
+    const items = [];
+    for (const [muscle, sets] of setsPerMuscle) {
+      if (sets <= 0) continue;
+      const level = weeklySetsToHeatLevel(sets);
+      if (level === 0) continue;
+      items.push({
+        label: MUSCLE_LABELS[muscle],
+        sets,
+        level,
+      });
+    }
+    return items.sort((a, b) => b.sets - a.sets);
+  }, [setsPerMuscle]);
+
+  if (volume.length === 0) return null;
+
+  // Anchor the bar width to a reasonable high volume (e.g. 25 sets)
+  const MAX_SETS = 25;
+
+  return (
+    <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
+      {volume.map(({ label, sets, level }) => {
+        const barWidth = Math.min(1, sets / MAX_SETS);
+        return (
+          <View key={label} style={{ gap: spacing.xxs }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontSize: fontSize.sm, fontWeight: '600', color: palette.text }}>
+                {label}
+              </Text>
+              <Text style={{ fontSize: fontSize.xs, color: palette.textFaint }}>
+                {Math.round(sets)} sets
+              </Text>
+            </View>
+            <View
+              style={{
+                height: 6,
+                backgroundColor: palette.border,
+                borderRadius: radius.sm,
+                overflow: 'hidden',
+              }}
+            >
+              <View
+                style={{
+                  height: '100%',
+                  backgroundColor: heatScale[level - 1],
+                  width: `${barWidth * 100}%`,
+                }}
+              />
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
 /**
  * Dashboard. Hevy puts a social feed on this tab; with the social half removed
@@ -47,8 +217,12 @@ export const HomeScreen = observer(function HomeScreen() {
     sevenDayWindowStart(Date.now()),
   );
   const { setsPerMuscle, reload: reloadMuscle } = useMuscleWeek(selectedWindowStart);
-  const { parts: recoveryParts, hasHistory: recoveryHasHistory, reload: reloadRecovery } =
-    useMuscleRecovery();
+  const {
+    parts: recoveryParts,
+    fatigueByMuscle,
+    hasHistory: recoveryHasHistory,
+    reload: reloadRecovery,
+  } = useMuscleRecovery();
   const [infoOpen, setInfoOpen] = useState(false);
   const [recoveryInfoOpen, setRecoveryInfoOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -154,26 +328,33 @@ export const HomeScreen = observer(function HomeScreen() {
           {heat.length === 0 ? (
             <Caption style={{ marginTop: spacing.md }}>No completed sets in this period.</Caption>
           ) : (
-            <Pressable
-              onPress={() => setViewerOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Open the interactive heatmap explorer"
-              style={styles.explore}
-            >
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'center',
-                  gap: spacing.md,
-                }}
+            <>
+              <Pressable
+                onPress={() => setViewerOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Open the interactive heatmap explorer"
+                style={styles.explore}
               >
-                <BodyMap parts={heat} side="front" scale={0.75} colors={heatScale} />
-                <BodyMap parts={heat} side="back" scale={0.75} colors={heatScale} />
-              </View>
-              <Caption style={{ textAlign: 'center', marginTop: spacing.xs }}>
-                Tap to rotate, zoom and explore
-              </Caption>
-            </Pressable>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    gap: spacing.md,
+                  }}
+                >
+                  <BodyMap parts={heat} side="front" scale={0.75} colors={heatScale} />
+                  <BodyMap parts={heat} side="back" scale={0.75} colors={heatScale} />
+                </View>
+                <Caption style={{ textAlign: 'center', marginTop: spacing.xs }}>
+                  Tap to rotate, zoom and explore
+                </Caption>
+              </Pressable>
+              <VolumeProgressList
+                setsPerMuscle={setsPerMuscle}
+                palette={palette}
+                heatScale={heatScale}
+              />
+            </>
           )}
           <HeatmapLegend colors={heatScale} />
           <View
@@ -223,6 +404,13 @@ export const HomeScreen = observer(function HomeScreen() {
             </Caption>
           ) : null}
           <RecoveryLegend colors={recoveryScale} />
+          <RecoveryProgressList
+            fatigueByMuscle={fatigueByMuscle}
+            birthYear={settings.values.birthYear}
+            sex={settings.values.sex}
+            palette={palette}
+            recoveryScale={recoveryScale}
+          />
           <View
             style={{
               flexDirection: 'row',

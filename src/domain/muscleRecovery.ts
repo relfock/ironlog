@@ -261,6 +261,28 @@ export function recoveryLevel(fatigue: number): 1 | 2 | 3 | 4 | 5 {
   return 2;
 }
 
+/** Time until fatigue drops to `FATIGUE_THRESHOLD_NEARLY` (full recovery). */
+export function timeUntilRecovered(
+  fatigue: number,
+  hours: number,
+  birthYear: number | null,
+  sex: Sex | null,
+): number {
+  if (fatigue <= FATIGUE_THRESHOLD_NEARLY) return 0;
+  const tau = recoveryTauHours(hours, birthYear, sex);
+  const hoursLeft = tau * Math.log(fatigue / FATIGUE_THRESHOLD_NEARLY);
+  return Math.round(hoursLeft * 3600_000);
+}
+
+/** Recovery progress from 0 (Fatigued) to 1 (Recovered). */
+export function calculateRecoveryProgress(fatigue: number): number {
+  if (fatigue <= FATIGUE_THRESHOLD_NEARLY) return 1;
+  if (fatigue >= RECOVERY_REFERENCE_FATIGUE) return 0;
+  const range = RECOVERY_REFERENCE_FATIGUE - FATIGUE_THRESHOLD_NEARLY;
+  const progress = (fatigue - FATIGUE_THRESHOLD_NEARLY) / range;
+  return 1 - progress;
+}
+
 /**
  * Current recovery state of every renderable muscle, as BodyMap parts.
  * Muscles that share a slug (lats + upper back, the three delt heads, glutes +

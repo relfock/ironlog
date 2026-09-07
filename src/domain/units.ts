@@ -95,3 +95,21 @@ export function formatDurationCompact(totalSeconds: number): string {
   if (h === 0) return `${m}m`;
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
+
+/** Format milliseconds into human-readable recovery time: "2 days 4 hours". */
+export function formatRecoveryTime(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  if (totalSec <= 0) return 'Recovered';
+  if (totalSec < 3600) {
+    const m = Math.floor(totalSec / 60);
+    return m === 1 ? '1 min left' : `${m} mins left`;
+  }
+  const totalHours = Math.floor(totalSec / 3600);
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+
+  const dPart = days > 0 ? `${days}d ` : '';
+  const hPart = hours > 0 ? `${hours}h` : (days === 0 ? '0h' : '');
+
+  return `${dPart}${hPart} left`.trim();
+}

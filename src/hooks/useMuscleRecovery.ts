@@ -28,6 +28,7 @@ import { useWorkoutHistory } from './useHistory';
  */
 export function useMuscleRecovery(): {
   parts: HighlightedPart[];
+  fatigueByMuscle: Map<Muscle, number>;
   /** True when at least one counted work set exists in the last 7 days. */
   hasHistory: boolean;
   loading: boolean;
@@ -100,9 +101,12 @@ export function useMuscleRecovery(): {
     setVersion((v) => v + 1);
   }, [history.length]);
 
-  const parts = useMemo<HighlightedPart[]>(() => {
+  const { parts, fatigueByMuscle } = useMemo(() => {
     const fatigue = remainingFatigue(rows, Date.now(), birthYear, sex);
-    return buildRecoveryMap(fatigue);
+    return {
+      parts: buildRecoveryMap(fatigue),
+      fatigueByMuscle: fatigue,
+    };
   }, [rows, birthYear, sex]);
 
   const reload = useCallback(() => {
@@ -111,5 +115,5 @@ export function useMuscleRecovery(): {
 
   const hasHistory = useMemo(() => rows.some((r) => r.unit > 0), [rows]);
 
-  return { parts, hasHistory, loading: loading || historyLoading, reload };
+  return { parts, fatigueByMuscle, hasHistory, loading: loading || historyLoading, reload };
 }
