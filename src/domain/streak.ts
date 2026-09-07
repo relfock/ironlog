@@ -31,6 +31,20 @@ export function startOfLocalWeek(ms: number, weekStart: WeekStart = 1): number {
 export const DAY_MS = 24 * 60 * 60 * 1000;
 export const WEEK_MS = 7 * DAY_MS;
 
+/**
+ * Local midnight at the START of the rolling 7-day window ending with the day
+ * containing `ms` — i.e. the day six days earlier. The Home muscle heatmap
+ * counts "the last 7 days" this way, so a Monday lookback still includes
+ * Sunday's session instead of an empty calendar week.
+ */
+export function sevenDayWindowStart(ms: number): number {
+  const d = new Date(startOfLocalDay(ms));
+  d.setDate(d.getDate() - 6);
+  // Re-normalise: DST transitions can move the clock off midnight.
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
 /** Local midnight at the start of the month containing `ms`. */
 export function startOfLocalMonth(ms: number): number {
   const d = new Date(ms);

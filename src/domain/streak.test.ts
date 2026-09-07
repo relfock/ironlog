@@ -8,9 +8,11 @@ import {
   startOfLocalDay,
   startOfLocalMonth,
   startOfLocalWeek,
+  sevenDayWindowStart,
   weekYear,
   weeksOfMonth,
   weeklyStreak,
+  WEEK_MS,
 } from './streak';
 
 /**
@@ -53,6 +55,19 @@ describe('local-time bucketing', () => {
     // 00:30 local is still that local day, even though it may be the previous
     // day in UTC.
     expect(localDayKey(new Date(2026, 0, 5, 0, 30).getTime())).toBe('2026-01-05');
+  });
+
+  it('sevenDayWindowStart is the midnight six calendar days before `ms`', () => {
+    // 31 Aug 2026 is a Monday; the 7-day window ending that day ran from the
+    // previous Tuesday. A Monday lookback therefore still includes Sunday.
+    const s = new Date(sevenDayWindowStart(NOW));
+    expect(s.getHours()).toBe(0);
+    expect(s.getMinutes()).toBe(0);
+    expect(s.getDate()).toBe(25);
+    expect(s.getMonth()).toBe(7); // August
+    // The window [start, start + 7d) always contains `ms`.
+    expect(sevenDayWindowStart(NOW)).toBeLessThanOrEqual(NOW);
+    expect(sevenDayWindowStart(NOW) + WEEK_MS).toBeGreaterThan(NOW);
   });
 });
 

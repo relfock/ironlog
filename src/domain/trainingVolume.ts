@@ -22,8 +22,8 @@
  * is modelled on sets, and absolute tonnage is not comparable across lifters
  * or muscles (a 90 kg machine press is a different relative effort than a
  * 90 kg deadlift). The heatmap therefore shows your work sets per muscle for
- * the selected week against these fixed zones, so the same dose always lights
- * the same muscles at the same intensity.
+ * the selected 7-day window against these fixed zones, so the same dose always
+ * lights the same muscles at the same intensity.
  */
 
 /** 1 = hottest, matching an intensity colour ramp indexed from `heatLevel - 1`. */

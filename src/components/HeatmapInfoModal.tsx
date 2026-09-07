@@ -32,10 +32,10 @@ export function HeatmapInfoModal({
             showsVerticalScrollIndicator={false}
           >
             <Text style={[styles.paragraph, { color: palette.textMuted }]}>
-              Each muscle is coloured by your work sets in the{"\u00A0"}selected week — not by
-              weight lifted. A work set is a hard set taken close to failure; warm-up sets don't
-              count unless “Count warm-ups in stats” is enabled, and muscles worked as secondary
-              receive half the credit.
+              Each muscle is coloured by your work sets in the selected 7-day period — the last
+              7 days by default — not by weight lifted. A work set is a hard set taken close to
+              failure; warm-up sets don't count unless “Count warm-ups in stats” is enabled, and
+              muscles worked as secondary receive half the credit.
             </Text>
 
             <Text style={[styles.subTitle, { color: palette.text }]}>The zones</Text>

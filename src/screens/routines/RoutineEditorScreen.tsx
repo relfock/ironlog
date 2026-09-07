@@ -43,6 +43,7 @@ import { useActiveWorkout } from '@/stores/RootStore';
 import { usePalette } from '@/theme/ThemeProvider';
 import { fontSize, radius, spacing } from '@/theme/tokens';
 import { consumePickerResult } from './exercisePickerBridge';
+import { getExercise } from '@/db/repositories/exercises';
 
 const TIMER_XML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
   <circle cx="8" cy="8.5" r="6.5" stroke="currentColor" stroke-width="1.2"/>
@@ -88,8 +89,17 @@ function draftFromRoutine(r: import('@/db/repositories/routines').RoutineData): 
   };
 }
 
-function buildDraftExercise(exerciseId: string, key?: string, dbId?: string): DraftExerciseData {
-  const info = exerciseBySlug(exerciseId)!;
+/**
+ * Build a draft exercise from its DB row (the picker hands over exercise ids,
+ * not catalogue slugs — custom exercises have no slug at all). `artKey` is the
+ * DB's art key (the catalogue slug for seeded exercises, null for custom), so
+ * the editor's muscle art and the persisted routine both resolve correctly.
+ */
+function buildDraftExercise(
+  exercise: import('@/db/repositories/exercises').Exercise,
+  key?: string,
+  dbId?: string,
+): DraftExerciseData {
   const makeSet = (i: number): DraftSetData => ({
     key: `s-${tempKey()}-${i}`,
     setType: 'normal',
@@ -102,13 +112,13 @@ function buildDraftExercise(exerciseId: string, key?: string, dbId?: string): Dr
   });
   return {
     key: key ?? tempKey(),
-    dbId: dbId !== undefined ? dbId : undefined,
-    exerciseId,
-    exerciseName: info.name,
-    trackingType: info.trackingType,
-    artKey: exerciseId,
-    primaryMuscles: info.primary,
-    secondaryMuscles: info.secondary,
+    dbId,
+    exerciseId: exercise.id,
+    exerciseName: exercise.name,
+    trackingType: exercise.trackingType,
+    artKey: exercise.artKey,
+    primaryMuscles: [...exercise.primary],
+    secondaryMuscles: [...exercise.secondary],
     supersetGroup: null,
     restSec: null,
     notes: null,
@@ -244,21 +254,33 @@ export const RoutineEditorScreen = observer(function RoutineEditorScreen() {
     useCallback(() => {
       const result = consumePickerResult();
       if (result === null || draft === null) return;
-      setDraft((d) => {
-        if (d === null) return d;
-        if (result.action === 'add') {
-          const exs = [...d.exercises];
-          for (const id of result.exerciseIds) exs.push(buildDraftExercise(id));
-          return { ...d, exercises: exs };
-        }
-        return {
-          ...d,
-          exercises: d.exercises.map((e) =>
-            e.key === result.draftExerciseKey
-              ? buildDraftExercise(result.newExerciseId, e.key, e.dbId)
-              : e,
-          ),
-        };
+      if (result.action === 'add') {
+        void (async () => {
+          const rows: DraftExerciseData[] = [];
+          for (const id of result.exerciseIds) {
+            const exercise = await getExercise(id);
+            if (exercise !== null) rows.push(buildDraftExercise(exercise));
+          }
+          if (rows.length === 0) return;
+          setDraft((d) => (d === null ? d : { ...d, exercises: [...d.exercises, ...rows] }));
+        })();
+        return;
+      }
+      const key = result.draftExerciseKey;
+      const id = result.newExerciseId;
+      if (key === undefined || id === undefined) return;
+      void getExercise(id).then((exercise) => {
+        if (exercise === null) return;
+        setDraft((d) =>
+          d === null
+            ? d
+            : {
+                ...d,
+                exercises: d.exercises.map((e) =>
+                  e.key === key ? buildDraftExercise(exercise, e.key, e.dbId) : e,
+                ),
+              },
+        );
       });
     }, [draft]),
   );

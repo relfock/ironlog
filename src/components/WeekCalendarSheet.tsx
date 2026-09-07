@@ -3,10 +3,11 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import {
   DAY_MS,
   formatWeekSpan,
+  sevenDayWindowStart,
   startOfLocalDay,
   startOfLocalMonth,
-  startOfLocalWeek,
   weeksOfMonth,
+  WEEK_MS,
   type WeekStart,
 } from '@/domain/streak';
 import { usePalette } from '@/theme/ThemeProvider';
@@ -18,28 +19,30 @@ const CELL = 34;
 
 /**
  * Bottom-sheet month calendar for jumping the muscle heatmap to a specific
- * week. Backward month navigation is unlimited; forward is capped at the
- * current month. Tapping any day selects that day's calendar week.
+ * 7-day window. Tapping any day selects the rolling 7-day window ENDING on that
+ * day — the same "last 7 days" window the Home heatmap uses by default (so on a
+ * Monday you can still browse the window that includes Sunday). Backward month
+ * navigation is unlimited; forward is capped at the current month.
  */
 export function WeekCalendarSheet({
   visible,
-  selectedWeekStartMs,
+  selectedWindowStartMs,
   weekStart,
-  onSelectWeek,
+  onSelectWindow,
   onClose,
 }: {
   visible: boolean;
-  selectedWeekStartMs: number;
+  selectedWindowStartMs: number;
   weekStart: WeekStart;
-  onSelectWeek: (weekStartMs: number) => void;
+  onSelectWindow: (windowStartMs: number) => void;
   onClose: () => void;
 }) {
   const palette = usePalette();
-  const [monthAnchor, setMonthAnchor] = useState(() => startOfLocalMonth(selectedWeekStartMs));
+  const [monthAnchor, setMonthAnchor] = useState(() => startOfLocalMonth(selectedWindowStartMs));
 
   useEffect(() => {
-    if (visible) setMonthAnchor(startOfLocalMonth(selectedWeekStartMs));
-  }, [visible, selectedWeekStartMs]);
+    if (visible) setMonthAnchor(startOfLocalMonth(selectedWindowStartMs));
+  }, [visible, selectedWindowStartMs]);
 
   const labels = weekStart === 1 ? DAY_LABELS_MON : DAY_LABELS_SUN;
   const weeks = useMemo(() => weeksOfMonth(monthAnchor, weekStart), [monthAnchor, weekStart]);
@@ -65,9 +68,12 @@ export function WeekCalendarSheet({
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close">
         <Pressable style={[styles.sheet, { backgroundColor: palette.surface }]} onPress={() => {}}>
           <View style={[styles.grabber, { backgroundColor: palette.border }]} />
-          <Text style={[styles.title, { color: palette.text }]}>Select a week</Text>
+          <Text style={[styles.title, { color: palette.text }]}>Select a period</Text>
           <Text style={[styles.selection, { color: palette.accent }]}>
-            {formatWeekSpan(selectedWeekStartMs)}
+            {formatWeekSpan(selectedWindowStartMs)}
+          </Text>
+          <Text style={[styles.caption, { color: palette.textMuted }]}>
+            Tapping a day selects the 7 days leading up to and including it.
           </Text>
 
           <View style={styles.navRow}>
@@ -111,25 +117,26 @@ export function WeekCalendarSheet({
                   const ms = weekStartMs + k * DAY_MS;
                   const day = new Date(ms);
                   const inMonth = day.getMonth() === new Date(monthAnchor).getMonth();
-                  const isSelectedWeek = startOfLocalWeek(ms, weekStart) === selectedWeekStartMs;
+                  const inSelectedWindow =
+                    ms >= selectedWindowStartMs && ms < selectedWindowStartMs + WEEK_MS;
                   const isToday = startOfLocalDay(ms) === todayDay;
                   return (
                     <Pressable
                       key={ms}
                       accessibilityRole="button"
-                      accessibilityLabel={`${day.toDateString()} — select this week`}
-                      onPress={() => onSelectWeek(startOfLocalWeek(ms, weekStart))}
+                      accessibilityLabel={`${day.toDateString()} — select the 7 days ending this day`}
+                      onPress={() => onSelectWindow(sevenDayWindowStart(ms))}
                       style={[
                         styles.dayCell,
-                        { backgroundColor: isSelectedWeek ? palette.accent : 'transparent' },
-                        isToday && !isSelectedWeek && { borderColor: palette.accent, borderWidth: 1 },
+                        { backgroundColor: inSelectedWindow ? palette.accent : 'transparent' },
+                        isToday && !inSelectedWindow && { borderColor: palette.accent, borderWidth: 1 },
                       ]}
                     >
                       <Text
                         style={{
                           fontSize: fontSize.sm,
-                          fontWeight: isSelectedWeek ? '700' : '500',
-                          color: isSelectedWeek
+                          fontWeight: inSelectedWindow ? '700' : '500',
+                          color: inSelectedWindow
                             ? palette.accentText
                             : inMonth
                               ? palette.text
@@ -170,6 +177,7 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: fontSize.lg, fontWeight: '700' },
   selection: { fontSize: fontSize.sm, fontWeight: '700', marginTop: spacing.xs },
+  caption: { fontSize: fontSize.sm, marginTop: spacing.xs },
   navRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -13,7 +13,12 @@ import { RecoveryLegend } from '@/components/RecoveryLegend';
 import { WeekCalendarSheet } from '@/components/WeekCalendarSheet';
 import { Body, Button, Caption, Card, H1, H2 } from '@/components/ui';
 import { buildHeatmap } from '@/domain/muscleMap';
-import { formatWeekSpan, startOfLocalWeek, weekYear, WEEK_MS } from '@/domain/streak';
+import {
+  formatWeekSpan,
+  sevenDayWindowStart,
+  weekYear,
+  WEEK_MS,
+} from '@/domain/streak';
 import { formatDurationCompact } from '@/domain/units';
 import { useWorkoutHistory } from '@/hooks/useHistory';
 import { useMuscleRecovery } from '@/hooks/useMuscleRecovery';
@@ -36,10 +41,12 @@ export const HomeScreen = observer(function HomeScreen() {
   const active = useActiveWorkout();
   const { workouts } = useWorkoutHistory(60);
   const { weekStart } = settings.values;
-  const [selectedWeekStart, setSelectedWeekStart] = useState(() =>
-    startOfLocalWeek(Date.now(), weekStart),
+  // The heatmap shows a rolling 7-day window ending today by default (not a
+  // Mon–Sun calendar week), so training on Sunday still shows on Monday.
+  const [selectedWindowStart, setSelectedWindowStart] = useState(() =>
+    sevenDayWindowStart(Date.now()),
   );
-  const { setsPerMuscle, reload: reloadMuscle } = useMuscleWeek(selectedWeekStart);
+  const { setsPerMuscle, reload: reloadMuscle } = useMuscleWeek(selectedWindowStart);
   const { parts: recoveryParts, hasHistory: recoveryHasHistory, reload: reloadRecovery } =
     useMuscleRecovery();
   const [infoOpen, setInfoOpen] = useState(false);
@@ -47,13 +54,14 @@ export const HomeScreen = observer(function HomeScreen() {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
 
-  const thisWeekStart = startOfLocalWeek(Date.now(), weekStart);
-  const atCurrentWeek = selectedWeekStart >= thisWeekStart;
+  const currentWindowStart = sevenDayWindowStart(Date.now());
+  const atCurrentWindow = selectedWindowStart >= currentWindowStart;
+  const windowLabel = atCurrentWindow ? 'Last 7 days' : formatWeekSpan(selectedWindowStart);
 
-  const shiftWeek = (delta: number) => {
-    setSelectedWeekStart((prev) => {
+  const shiftWindow = (delta: number) => {
+    setSelectedWindowStart((prev) => {
       const next = prev + delta * WEEK_MS;
-      return atCurrentWeek && delta > 0 ? prev : next;
+      return atCurrentWindow && delta > 0 ? prev : next;
     });
   };
 
@@ -112,9 +120,9 @@ export const HomeScreen = observer(function HomeScreen() {
             <H2>Muscle heatmap</H2>
             <View style={styles.weekNav}>
               <Pressable
-                onPress={() => shiftWeek(-1)}
+                onPress={() => shiftWindow(-1)}
                 accessibilityRole="button"
-                accessibilityLabel="Previous week"
+                accessibilityLabel="Previous 7 days"
                 style={[styles.weekNavChevron, { borderColor: palette.border }]}
               >
                 <Text style={[styles.weekNavArrow, { color: palette.text }]}>‹</Text>
@@ -122,21 +130,21 @@ export const HomeScreen = observer(function HomeScreen() {
               <Pressable
                 onPress={() => setCalendarOpen(true)}
                 accessibilityRole="button"
-                accessibilityLabel="Choose a different week"
+                accessibilityLabel="Choose a different period"
                 style={styles.weekNavLabelWrap}
               >
                 <Text style={[styles.weekNavLabel, { color: palette.accent }]}>
-                  {formatWeekSpan(selectedWeekStart)}
+                  {windowLabel}
                 </Text>
               </Pressable>
               <Pressable
-                onPress={() => shiftWeek(1)}
+                onPress={() => shiftWindow(1)}
                 accessibilityRole="button"
-                accessibilityLabel="Next week"
-                disabled={atCurrentWeek}
+                accessibilityLabel="Next 7 days"
+                disabled={atCurrentWindow}
                 style={[
                   styles.weekNavChevron,
-                  { borderColor: palette.border, opacity: atCurrentWeek ? 0.35 : 1 },
+                  { borderColor: palette.border, opacity: atCurrentWindow ? 0.35 : 1 },
                 ]}
               >
                 <Text style={[styles.weekNavArrow, { color: palette.text }]}>›</Text>
@@ -144,7 +152,7 @@ export const HomeScreen = observer(function HomeScreen() {
             </View>
           </View>
           {heat.length === 0 ? (
-            <Caption style={{ marginTop: spacing.md }}>No completed sets this week.</Caption>
+            <Caption style={{ marginTop: spacing.md }}>No completed sets in this period.</Caption>
           ) : (
             <Pressable
               onPress={() => setViewerOpen(true)}
@@ -176,7 +184,7 @@ export const HomeScreen = observer(function HomeScreen() {
               marginTop: spacing.md,
             }}
           >
-            <Caption>{weekYear(selectedWeekStart)}</Caption>
+            <Caption>{weekYear(selectedWindowStart)}</Caption>
             <Pressable onPress={() => setInfoOpen(true)} accessibilityRole="button" hitSlop={8}>
               <Text style={{ color: palette.accent, fontSize: fontSize.sm, fontWeight: '700' }}>
                 More info ›
@@ -186,10 +194,10 @@ export const HomeScreen = observer(function HomeScreen() {
           <HeatmapInfoModal visible={infoOpen} colors={heatScale} onClose={() => setInfoOpen(false)} />
           <WeekCalendarSheet
             visible={calendarOpen}
-            selectedWeekStartMs={selectedWeekStart}
+            selectedWindowStartMs={selectedWindowStart}
             weekStart={weekStart}
-            onSelectWeek={(ms) => {
-              setSelectedWeekStart(ms);
+            onSelectWindow={(ms) => {
+              setSelectedWindowStart(ms);
               setCalendarOpen(false);
             }}
             onClose={() => setCalendarOpen(false)}
