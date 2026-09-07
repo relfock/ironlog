@@ -2,16 +2,21 @@ import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import { useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import {
+  Area,
   CartesianChart,
   Line,
-  Scatter,
   useChartPressState,
 } from 'victory-native';
-import { Line as SkiaLine, DashPathEffect } from '@shopify/react-native-skia';
+import {
+  Line as SkiaLine,
+  LinearGradient,
+  Rect,
+  DashPathEffect,
+} from '@shopify/react-native-skia';
 import { Caption, H2 } from '../ui';
 import { useChartFont } from './useChartFont';
 import { summariseHeartRate } from '@/domain/heartRate';
-import { usePalette } from '@/theme/ThemeProvider';
+import { usePalette, useTheme } from '@/theme/ThemeProvider';
 import { fontSize, spacing } from '@/theme/tokens';
 
 export interface HeartRateSamplePoint {
@@ -27,10 +32,32 @@ function formatClock(v: number): string {
   });
 }
 
+/** Append an alpha byte to a #rrggbb colour. */
+function withAlpha(hex: string, alpha: number): string {
+  return `${hex}${Math.round(alpha * 255)
+    .toString(16)
+    .padStart(2, '0')}`;
+}
+
 /**
- * Heart rate over a single workout: AVG / MAX / ZONE 2 summary stats plus the
- * time-series curve. Zone 2 floor defaults to the classic 220 − age when
- * `maxHr` is given, otherwise the measured max.
+ * HR zones as % of max HR, the thresholds WHOOP uses when zones are anchored to
+ * HR max. Drawn as faint horizontal bands behind the curve so the workout's
+ * ceiling is visible at a glance, exactly like a Whoop HR graph.
+ */
+const ZONE_BANDS = [
+  { min: 0.5, max: 0.6, color: '#3D7BFF' },
+  { min: 0.6, max: 0.7, color: '#1FAA54' },
+  { min: 0.7, max: 0.8, color: '#F0C800' },
+  { min: 0.8, max: 0.9, color: '#FF8D1F' },
+  { min: 0.9, max: 1.05, color: '#E63B3B' },
+] as const;
+
+/**
+ * Heart rate over a single workout: AVG / MAX / ZONE 2+ stats plus the
+ * time-series curve — a single smooth area line (no per-sample dots, no
+ * jagged connect-the-points look), with WHOOP's zone bands behind it. Zone 2
+ * floor defaults to the classic 220 − age when `maxHr` is given, otherwise
+ * the measured max.
  */
 export function HeartRateChartCard({
   title = 'HEART RATE',
@@ -42,6 +69,7 @@ export function HeartRateChartCard({
   maxHr?: number;
 }) {
   const palette = usePalette();
+  const { isDark } = useTheme();
   const font = useChartFont();
   const summary = summariseHeartRate(
     samples.map((s) => ({ recordedAt: s.recordedAt, bpm: s.bpm })),
@@ -75,6 +103,12 @@ export function HeartRateChartCard({
   const bpm = samples.map((d) => d.bpm);
   const yFloor = Math.max(0, Math.floor((Math.min(...bpm) - 10) / 10) * 10);
   const yCeil = Math.ceil((Math.max(...bpm) + 10) / 10) * 10;
+  // Zone bands and the area gradient stay tied to the athlete's HR ceiling.
+  const hrCeiling = maxHr ?? Math.max(...bpm);
+  // A single red companion to the theme accent, so the trace reads as a
+  // heart-rate line in either theme.
+  const trace = palette.danger;
+  const zoneOpacity = isDark ? 0.17 : 0.11;
 
   return (
     <View>
@@ -155,33 +189,69 @@ export function HeartRateChartCard({
               formatYLabel: (v) => String(Math.round(v)),
             }}
           >
-            {({ points, chartBounds }) => (
-              <>
-                <Line
-                  points={points.y}
-                  color={palette.accent}
-                  strokeWidth={2.5}
-                  curveType="monotoneX"
-                  animate={{ type: 'timing', duration: 250 }}
-                />
-                <Scatter
-                  points={points.y}
-                  color={palette.accent}
-                  radius={3}
-                  style="fill"
-                />
-                {callout !== null && (
-                  <SkiaLine
-                    p1={{ x: callout.xPos, y: chartBounds.top }}
-                    p2={{ x: callout.xPos, y: chartBounds.bottom }}
-                    color={palette.textFaint}
-                    strokeWidth={1}
+            {({ points, chartBounds }) => {
+              // Canvas-space y for a given HR, mirroring the domain mapping.
+              const yFor = (hr: number) =>
+                chartBounds.bottom -
+                ((hr - yFloor) / (yCeil - yFloor)) *
+                  (chartBounds.bottom - chartBounds.top);
+              const plotWidth = chartBounds.right - chartBounds.left;
+              return (
+                <>
+                  {ZONE_BANDS.map((band) => {
+                    const bandTop = Math.min(
+                      Math.max(hrCeiling * band.max, yFloor),
+                      yCeil,
+                    );
+                    const bandBottom = Math.min(
+                      Math.max(hrCeiling * band.min, yFloor),
+                      yCeil,
+                    );
+                    if (bandBottom <= bandTop) return null;
+                    const y1 = yFor(bandTop);
+                    const y2 = yFor(bandBottom);
+                    return (
+                      <Rect
+                        key={band.color}
+                        x={chartBounds.left}
+                        y={y1}
+                        width={plotWidth}
+                        height={Math.max(0, y2 - y1)}
+                        color={withAlpha(band.color, zoneOpacity)}
+                      />
+                    );
+                  })}
+                  <Area
+                    points={points.y}
+                    y0={chartBounds.bottom}
+                    curveType="monotoneX"
                   >
-                    <DashPathEffect intervals={[4, 4]} />
-                  </SkiaLine>
-                )}
-              </>
-            )}
+                    <LinearGradient
+                      start={{ x: 0, y: chartBounds.top }}
+                      end={{ x: 0, y: chartBounds.bottom }}
+                      colors={[withAlpha(trace, 0.3), withAlpha(trace, 0)]}
+                    />
+                  </Area>
+                  <Line
+                    points={points.y}
+                    color={trace}
+                    strokeWidth={3}
+                    curveType="monotoneX"
+                    animate={{ type: 'timing', duration: 250 }}
+                  />
+                  {callout !== null && (
+                    <SkiaLine
+                      p1={{ x: callout.xPos, y: chartBounds.top }}
+                      p2={{ x: callout.xPos, y: chartBounds.bottom }}
+                      color={palette.textFaint}
+                      strokeWidth={1}
+                    >
+                      <DashPathEffect intervals={[4, 4]} />
+                    </SkiaLine>
+                  )}
+                </>
+              );
+            }}
           </CartesianChart>
         </View>
       )}

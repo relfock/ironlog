@@ -19,8 +19,10 @@ const ROW_HEIGHT = 44;
 const MOMENTUM_TAU = 0.3;
 /** Below this speed (px/s) a fling has "stopped" and the wheel snaps. */
 const SETTLE_VELOCITY = 30;
-/** Above this release speed (px/s) we fling; anything slower settles at once. */
-const FLING_THRESHOLD = 100;
+/** Window (ms) of recent moves used to estimate the release velocity. */
+const VELOCITY_WINDOW_MS = 100;
+/** Below this measured speed (px/s) we settle at once instead of flinging. */
+const FLING_THRESHOLD = 40;
 /** Cap on a fling's starting speed, so an absurd swipe cannot spin forever. */
 const MAX_FLING = 5000;
 /** Soft push-back at the top/bottom of the wheel when a fling runs past. */
@@ -70,6 +72,11 @@ export function RestPickerSheet({
   const velocity = useRef(0);
   const startOffset = useRef(0);
   const raf = useRef<number | null>(null);
+  // Sliding window of (time, offset-space position) for the moves just before
+  // release. PanResponder's own `vy` is unreliable at finger-lift (it reads the
+  // last event only, which is typically slow or zero), so the fling speed is
+  // estimated from how fast the finger WAS moving here.
+  const moveHistory = useRef<{ t: number; y: number }[]>([]);
   const [index, setIndex] = useState(initialIndex);
 
   const indexFrom = (o: number): number =>
@@ -80,6 +87,27 @@ export function RestPickerSheet({
     currentOffset.current = o;
     const next = indexFrom(o);
     setIndex((prev) => (prev === next ? prev : next));
+  };
+
+  /** Remember where the finger was (in wheel-offset px) within the window. */
+  const recordMove = (y: number) => {
+    const now = Date.now();
+    const h = moveHistory.current;
+    h.push({ t: now, y });
+    const cutoff = now - VELOCITY_WINDOW_MS;
+    while (h.length > 0 && h[0] !== undefined && h[0].t < cutoff) h.shift();
+  };
+
+  /** Wheel speed (px/s) across the trailing window, 0 when too short to trust. */
+  const estimateVelocity = (): number => {
+    const h = moveHistory.current;
+    if (h.length < 2) return 0;
+    const first = h[0];
+    const last = h[h.length - 1];
+    if (first === undefined || last === undefined) return 0;
+    const dtMs = last.t - first.t;
+    if (dtMs < 30) return 0;
+    return ((last.y - first.y) / dtMs) * 1000;
   };
 
   const stopGlide = () => {
@@ -108,14 +136,14 @@ export function RestPickerSheet({
     stopGlide();
     velocity.current = initialVelocity;
     let last = Date.now();
-    let first = true;
-    const step = (now: number) => {
-      const dt = Math.min(0.05, (now - last) / 1000);
+    const step = () => {
+      // Wall-clock delta, NOT the rAF timestamp: that one is small (ms since
+      // the JS context started) while `Date.now()` is epoch time, so mixing
+      // them yields a huge negative dt, an infinite velocity and a glide that
+      // never settles.
+      const now = Date.now();
+      const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
       last = now;
-      if (first) {
-        first = false;
-        void dt;
-      }
       let v = velocity.current * Math.exp(-dt / MOMENTUM_TAU);
       if (Math.abs(v) < SETTLE_VELOCITY) {
         raf.current = null;
@@ -151,14 +179,17 @@ export function RestPickerSheet({
         onPanResponderGrant: () => {
           undoScrolling();
           startOffset.current = currentOffset.current;
+          moveHistory.current = [];
         },
         onPanResponderMove: (_e, g) => {
-          const next = Math.max(0, Math.min(maxOffset, startOffset.current - g.dy));
+          const y = startOffset.current - g.dy;
+          const next = Math.max(0, Math.min(maxOffset, y));
+          recordMove(y);
           offset.setValue(next);
           track(next);
         },
-        onPanResponderRelease: (_e, g) => {
-          const fling = -g.vy;
+        onPanResponderRelease: (_e, _g) => {
+          const fling = estimateVelocity();
           if (Math.abs(fling) > FLING_THRESHOLD) {
             runGlide(Math.max(-MAX_FLING, Math.min(MAX_FLING, fling)));
           } else {
