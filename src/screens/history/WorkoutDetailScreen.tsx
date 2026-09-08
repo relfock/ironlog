@@ -249,6 +249,8 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
                     if (s.reps !== null) bits.push(`× ${s.reps}`);
                     if (s.durationSec !== null) bits.push(formatDuration(s.durationSec));
                     if (s.distanceM !== null) bits.push(`${Math.round(s.distanceM)} m`);
+                    if (s.caloriesKcal !== null) bits.push(`${Math.round(s.caloriesKcal)} kcal`);
+                    if (s.avgBpm !== null) bits.push(`${s.avgBpm} bpm avg`);
                     if (s.rpe !== null) bits.push(`RPE ${s.rpe}`);
                     if (editing) {
                       return (

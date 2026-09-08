@@ -27,6 +27,10 @@ export interface WorkoutSetData {
   readonly targetRepsMax: number | null;
   readonly durationSec: number | null;
   readonly distanceM: number | null;
+  /** HR-tracked cardio: segment average heart rate. */
+  readonly avgBpm: number | null;
+  /** HR-tracked cardio: kcal burned in this segment. */
+  readonly caloriesKcal: number | null;
   readonly rpe: number | null;
   readonly completed: boolean;
   readonly completedAt: number | null;
@@ -135,6 +139,8 @@ export async function loadWorkout(workoutId: string): Promise<WorkoutData | null
       targetRepsMax: s.targetRepsMax,
       durationSec: s.durationSec,
       distanceM: s.distanceM,
+      avgBpm: s.avgBpm,
+      caloriesKcal: s.caloriesKcal,
       rpe: s.rpe,
       completed: s.completed,
       completedAt: s.completedAt,
@@ -394,6 +400,8 @@ export async function addSet(
     reps: seed.reps ?? null,
     durationSec: seed.durationSec ?? null,
     distanceM: seed.distanceM ?? null,
+    avgBpm: seed.avgBpm ?? null,
+    caloriesKcal: seed.caloriesKcal ?? null,
     rpe: seed.rpe ?? null,
     completed: false,
     createdAt: now,
@@ -413,6 +421,8 @@ export async function updateSet(
       | 'reps'
       | 'durationSec'
       | 'distanceM'
+      | 'avgBpm'
+      | 'caloriesKcal'
       | 'rpe'
       | 'completed'
       | 'completedAt'
@@ -427,7 +437,9 @@ export async function updateSet(
       ...(patch.weightKg !== undefined ? { weightKg: patch.weightKg } : {}),
       ...(patch.reps !== undefined ? { reps: patch.reps } : {}),
       ...(patch.durationSec !== undefined ? { durationSec: patch.durationSec } : {}),
-      ...(patch.distanceM !== undefined ? { distanceM: patch.distanceM } : {}),
+      ... (patch.distanceM !== undefined ? { distanceM: patch.distanceM } : {}),
+      ...(patch.avgBpm !== undefined ? { avgBpm: patch.avgBpm } : {}),
+      ...(patch.caloriesKcal !== undefined ? { caloriesKcal: patch.caloriesKcal } : {}),
       ...(patch.rpe !== undefined ? { rpe: patch.rpe } : {}),
       ...(patch.completed !== undefined ? { completed: patch.completed } : {}),
       ...(patch.completedAt !== undefined ? { completedAt: patch.completedAt } : {}),
@@ -706,6 +718,8 @@ export async function getPreviousSets(
       targetRepsMax: r.s.targetRepsMax,
       durationSec: r.s.durationSec,
       distanceM: r.s.distanceM,
+      avgBpm: r.s.avgBpm,
+      caloriesKcal: r.s.caloriesKcal,
       rpe: r.s.rpe,
       completed: r.s.completed,
       completedAt: r.s.completedAt,

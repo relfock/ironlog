@@ -256,10 +256,134 @@ export class ActiveWorkoutStore {
       setType: 'normal',
       weightKg: last?.weightKg ?? null,
       reps: last?.reps ?? null,
-      durationSec: last?.durationSec ?? null,
+      // Cardio segments each time their own stopwatch, so a fresh row must not
+      // inherit the previous segment's finished duration.
+      durationSec:
+        we.trackingType === 'hr_cardio' ? null : (last?.durationSec ?? null),
       distanceM: last?.distanceM ?? null,
     });
     await this.reload(workout.id);
+  }
+
+  /**
+   * Write-through for an in-flight cardio (elliptical) segment. Patches local
+   * state at once and debounces one DB write per segment — the same cadence
+   * trade-off as field editing, so a stopwatch ticking once a second never
+   * hammers SQLite.
+   */
+  updateCardioProgress(
+    setId: string,
+    patch: {
+      durationSec: number;
+      avgBpm: number | null;
+      caloriesKcal: number | null;
+    },
+  ): void {
+    this.patchLocalSet(setId, patch);
+
+    const existing = this.pendingWrites.get(setId);
+    if (existing !== undefined) clearTimeout(existing);
+
+    this.pendingWrites.set(
+      setId,
+      setTimeout(() => {
+        this.pendingWrites.delete(setId);
+        const set = this.findSet(setId);
+        if (set === null) return;
+        void updateSet(setId, {
+          durationSec: set.durationSec,
+          avgBpm: set.avgBpm,
+          caloriesKcal: set.caloriesKcal,
+        });
+      }, FIELD_WRITE_DEBOUNCE_MS),
+    );
+  }
+
+  /**
+   * Complete a cardio segment: stamp the final duration, calories and average
+   * heart rate onto the set and detect a longest-duration PR. No rest timer —
+   * the walk back to the next lift is the rest.
+   *
+   * The in-card session samples are persisted to the workout's heart-rate
+   * history only when the workout HR sampler is not already capturing them
+   * (i.e. no strap attached), so the post-workout HR chart still shows the
+   * cardio session without double-recording points.
+   */
+  async completeCardioSession(
+    setId: string,
+    target: {
+      durationSec: number;
+      avgBpm: number | null;
+      caloriesKcal: number | null;
+    },
+    samplePoints: { recordedAt: number; bpm: number }[] = [],
+  ): Promise<void> {
+    const workout = this.workout;
+    if (workout === null) return;
+    const found = this.locate(setId);
+    if (found === null) return;
+    const { we, set } = found;
+
+    this.flushField(setId);
+
+    const durationSec = Math.max(0, Math.round(target.durationSec));
+    const now = Date.now();
+
+    // Final values land in local state first so PR detection reads the truth.
+    this.patchLocalSet(setId, {
+      durationSec,
+      avgBpm: target.avgBpm,
+      caloriesKcal: target.caloriesKcal,
+      completed: true,
+      completedAt: now,
+    });
+
+    const logged: LoggedSet = { ...toLoggedSet(set), durationSec, completed: true };
+    const book = this.recordBooks.get(we.exerciseId) ?? new Map<PrKind, number>();
+    const prs = detectPrs(logged, book, {
+      trackingType: we.trackingType,
+      bodyweightKg: workout.bodyweightKg,
+      countWarmups: this.settings.values.countWarmupsInStats,
+      formula: this.settings.values.oneRepMaxFormula,
+    });
+
+    this.patchLocalSet(setId, { prKinds: prs.map((p) => p.kind) });
+
+    await updateSet(setId, {
+      durationSec,
+      avgBpm: target.avgBpm,
+      caloriesKcal: target.caloriesKcal,
+      completed: true,
+      completedAt: now,
+      prKinds: prs.map((p) => p.kind),
+    });
+
+    for (const pr of prs) {
+      book.set(pr.kind, pr.value);
+      await upsertRecord(we.exerciseId, pr.kind, pr.value, now, setId);
+    }
+    this.recordBooks.set(we.exerciseId, book);
+
+    const headline = headlinePr(prs);
+    if (headline !== null && this.settings.values.prNotificationsEnabled) {
+      runInAction(() => {
+        this.prBanner = { exerciseName: we.exerciseName, pr: headline, at: now };
+      });
+    }
+
+    if (samplePoints.length > 0 && !this.heartRateSamplingWorkout) {
+      await saveWorkoutHeartRateSamples(workout.id, samplePoints);
+    }
+
+    await this.reload(workout.id);
+  }
+
+  /** True while the workout-level HR sampler is storing readings. */
+  private get heartRateSamplingWorkout(): boolean {
+    return (
+      this.settings.values.heartRateEnabled &&
+      (this.heartRate.status === 'connected' || this.heartRate.status === 'connecting')
+    );
   }
 
   /**

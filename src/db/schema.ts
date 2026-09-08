@@ -223,6 +223,10 @@ export const workoutSets = sqliteTable(
     targetRepsMax: integer('target_reps_max'),
     durationSec: integer('duration_sec'),
     distanceM: real('distance_m'),
+    /** HR-tracked cardio (elliptical): session average heart rate. */
+    avgBpm: real('avg_bpm'),
+    /** HR-tracked cardio (elliptical): kcal burned in this segment. */
+    caloriesKcal: real('calories_kcal'),
     rpe: real('rpe'),
     completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
     completedAt: integer('completed_at'),

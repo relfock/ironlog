@@ -27,6 +27,10 @@ import { db } from './client';
 import { newId } from './ids';
 import { exercises } from './schema';
 import { ALL_EXERCISES } from '@/data/exercises';
+import {
+  EXTRA_EXERCISE_SLUGS,
+  EXTRA_EXERCISES,
+} from '@/data/exercises/extras';
 
 export interface SeedResult {
   readonly inserted: number;
@@ -94,17 +98,18 @@ export async function seedExercises(): Promise<SeedResult> {
   const pending: ExerciseInsert[] = [];
   const refresh: { readonly id: string; readonly fields: CatalogueFields }[] = [];
 
-  for (const ex of ALL_EXERCISES) {
+  for (const ex of [...ALL_EXERCISES, ...EXTRA_EXERCISES]) {
     // `artKey` doubles as the media key: the video and the region map are both
     // looked up by catalogue slug, and the denormalised routine/workout queries
-    // select artKey without joining `seedSlug`.
+    // select artKey without joining `seedSlug`. Extra exercises have no media,
+    // so they seed with a null artKey instead.
     const fields: CatalogueFields = {
       name: ex.name,
       trackingType: ex.trackingType,
       equipment: ex.equipment,
       primaryMuscles: [...ex.primary],
       secondaryMuscles: [...ex.secondary],
-      artKey: ex.slug,
+      artKey: EXTRA_EXERCISE_SLUGS.has(ex.slug) ? null : ex.slug,
     };
 
     const row = bySlug.get(ex.slug);
@@ -124,7 +129,10 @@ export async function seedExercises(): Promise<SeedResult> {
     }
   }
 
-  const catalogueSlugs = new Set(ALL_EXERCISES.map((ex) => ex.slug));
+  const catalogueSlugs = new Set([
+    ...ALL_EXERCISES.map((ex) => ex.slug),
+    ...EXTRA_EXERCISE_SLUGS,
+  ]);
   // A non-custom row with a null seedSlug cannot be matched to any catalogue
   // entry either, so it is swept up too rather than left visible forever.
   const staleIds = existing

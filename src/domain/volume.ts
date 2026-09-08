@@ -40,7 +40,8 @@ export function effectiveLoadKg(
       return stripFloatNoise(Math.max(0, bodyweightKg - (set.weightKg ?? 0)));
     case 'duration':
     case 'distance_duration':
-      // Time and distance work carries no tonnage.
+    case 'hr_cardio':
+      // Time, distance and heart-rate work carries no tonnage.
       return null;
   }
 }

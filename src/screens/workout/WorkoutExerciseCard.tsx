@@ -8,6 +8,7 @@ import { ActionSheet } from '@/components/ActionSheet';
 import { PromptModal } from '@/components/PromptModal';
 import { RestPickerSheet } from '@/components/RestPickerSheet';
 import { SetRow } from '@/components/SetRow';
+import { CardioActivityCard } from '@/components/CardioActivityCard';
 import { Body, Caption, Pill, Row } from '@/components/ui';
 import { exerciseBySlug } from '@/data/exercises';
 import type { WorkoutExerciseData } from '@/db/repositories/workouts';
@@ -161,50 +162,56 @@ export const WorkoutExerciseCard = observer(function WorkoutExerciseCard({
               </Body>
             ) : null}
 
-            <HeaderRow we={we} />
+            {we.trackingType === 'hr_cardio' ? (
+              <CardioActivityCard we={we} />
+            ) : (
+              <>
+                <HeaderRow we={we} />
 
-            {rows.map(({ set, workingIndex }, idx) => (
-              <SetRow
-                key={set.id}
-                we={we}
-                set={set}
-                workingIndex={workingIndex}
-                previous={active.previousFor(we.exerciseId, idx)}
-                onRequestPlateCalculator={onRequestPlateCalculator}
-              />
-            ))}
+                {rows.map(({ set, workingIndex }, idx) => (
+                  <SetRow
+                    key={set.id}
+                    we={we}
+                    set={set}
+                    workingIndex={workingIndex}
+                    previous={active.previousFor(we.exerciseId, idx)}
+                    onRequestPlateCalculator={onRequestPlateCalculator}
+                  />
+                ))}
 
-            <Pressable
-              onPress={() => void active.addSetTo(we.id)}
-              accessibilityRole="button"
-              accessibilityLabel="Add set"
-              style={[styles.addSet, { borderColor: palette.border }]}
-            >
-              <Text style={{ color: palette.accent, fontSize: fontSize.sm, fontWeight: '700' }}>
-                + Add set
-              </Text>
-            </Pressable>
+                <Pressable
+                  onPress={() => void active.addSetTo(we.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add set"
+                  style={[styles.addSet, { borderColor: palette.border }]}
+                >
+                  <Text style={{ color: palette.accent, fontSize: fontSize.sm, fontWeight: '700' }}>
+                    + Add set
+                  </Text>
+                </Pressable>
 
-            {/* Rest timer row */}
-            <Pressable
-              onPress={chooseRest}
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.restRow,
-                { borderTopColor: palette.border, opacity: pressed ? 0.6 : 1 },
-              ]}
-            >
-              <SvgXml
-                xml={TIMER_XML}
-                width={16}
-                height={16}
-                color={palette.accent}
-                style={{ marginRight: spacing.sm }}
-              />
-              <Text style={{ color: palette.accent, fontSize: fontSize.sm, fontWeight: '700' }}>
-                {we.restSec === null ? 'Rest Timer: OFF' : `Rest Timer: ${formatDuration(we.restSec)}`}
-              </Text>
-            </Pressable>
+                {/* Rest timer row */}
+                <Pressable
+                  onPress={chooseRest}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [
+                    styles.restRow,
+                    { borderTopColor: palette.border, opacity: pressed ? 0.6 : 1 },
+                  ]}
+                >
+                  <SvgXml
+                    xml={TIMER_XML}
+                    width={16}
+                    height={16}
+                    color={palette.accent}
+                    style={{ marginRight: spacing.sm }}
+                  />
+                  <Text style={{ color: palette.accent, fontSize: fontSize.sm, fontWeight: '700' }}>
+                    {we.restSec === null ? 'Rest Timer: OFF' : `Rest Timer: ${formatDuration(we.restSec)}`}
+                  </Text>
+                </Pressable>
+              </>
+            )}
           </>
         ) : null}
       </View>
@@ -236,13 +243,13 @@ export const WorkoutExerciseCard = observer(function WorkoutExerciseCard({
         actions={[
           {
             key: 'add-set',
-            label: 'Add set',
+            label: we.trackingType === 'hr_cardio' ? 'Add segment' : 'Add set',
             onPress: () => {
               setMenuOpen(false);
               void active.addSetTo(we.id);
             },
           },
-          ...(settings.values.warmupCalculatorEnabled
+          ...(settings.values.warmupCalculatorEnabled && we.trackingType !== 'hr_cardio'
             ? [
                 {
                   key: 'add-warmups',

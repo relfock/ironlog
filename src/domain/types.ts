@@ -16,7 +16,8 @@ export type TrackingType =
   | 'weighted_bodyweight' // weighted pull-up (+load)
   | 'assisted_bodyweight' // assisted dip (−load)
   | 'duration' // plank
-  | 'distance_duration'; // treadmill, row erg
+  | 'distance_duration' // treadmill, row erg
+  | 'hr_cardio'; // elliptical: heart-rate-tracked time on a cardio machine
 
 /** Hevy's four set types; all four may be mixed within one exercise. */
 export type SetType = 'normal' | 'warmup' | 'drop' | 'failure';
@@ -118,11 +119,11 @@ export function hasWeight(t: TrackingType): boolean {
 }
 
 export function hasReps(t: TrackingType): boolean {
-  return t !== 'duration' && t !== 'distance_duration';
+  return t !== 'duration' && t !== 'distance_duration' && t !== 'hr_cardio';
 }
 
 export function hasDuration(t: TrackingType): boolean {
-  return t === 'duration' || t === 'distance_duration';
+  return t === 'duration' || t === 'distance_duration' || t === 'hr_cardio';
 }
 
 export function hasDistance(t: TrackingType): boolean {
@@ -133,5 +134,5 @@ export function hasDistance(t: TrackingType): boolean {
  * Hevy disables RPE for duration-based exercises; we mirror that.
  */
 export function supportsRpe(t: TrackingType): boolean {
-  return t !== 'duration';
+  return t !== 'duration' && t !== 'hr_cardio';
 }

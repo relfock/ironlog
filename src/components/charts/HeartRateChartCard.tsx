@@ -16,6 +16,7 @@ import {
 import { Caption, H2 } from '../ui';
 import { useChartFont } from './useChartFont';
 import { summariseHeartRate } from '@/domain/heartRate';
+import { HR_ZONES } from '@/domain/heartRateZones';
 import { usePalette, useTheme } from '@/theme/ThemeProvider';
 import { fontSize, spacing } from '@/theme/tokens';
 
@@ -38,19 +39,6 @@ function withAlpha(hex: string, alpha: number): string {
     .toString(16)
     .padStart(2, '0')}`;
 }
-
-/**
- * HR zones as % of max HR, the thresholds WHOOP uses when zones are anchored to
- * HR max. Drawn as faint horizontal bands behind the curve so the workout's
- * ceiling is visible at a glance, exactly like a Whoop HR graph.
- */
-const ZONE_BANDS = [
-  { min: 0.5, max: 0.6, color: '#3D7BFF' },
-  { min: 0.6, max: 0.7, color: '#1FAA54' },
-  { min: 0.7, max: 0.8, color: '#F0C800' },
-  { min: 0.8, max: 0.9, color: '#FF8D1F' },
-  { min: 0.9, max: 1.05, color: '#E63B3B' },
-] as const;
 
 /**
  * Heart rate over a single workout: AVG / MAX / ZONE 2+ stats plus the
@@ -198,7 +186,7 @@ export function HeartRateChartCard({
               const plotWidth = chartBounds.right - chartBounds.left;
               return (
                 <>
-                  {ZONE_BANDS.map((band) => {
+                  {HR_ZONES.map((band) => {
                     const bandTop = Math.min(
                       Math.max(hrCeiling * band.max, yFloor),
                       yCeil,

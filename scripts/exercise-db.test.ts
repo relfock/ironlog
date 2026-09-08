@@ -57,6 +57,9 @@ const TRACKING: Record<TrackingType, true> = {
   assisted_bodyweight: true,
   duration: true,
   distance_duration: true,
+  // hr_cardio is a code-defined built-in (see src/data/exercises/extras.ts);
+  // the generator never emits it, so nothing below exercises that path.
+  hr_cardio: true,
 };
 
 const REGIONS: Record<MuscleRegion, true> = {
