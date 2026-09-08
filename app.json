@@ -57,6 +57,7 @@
       "expo-audio",
       "expo-sharing",
       "./plugins/withGradleMemory",
+      "./plugins/withNotificationSound",
       [
         "@sfourdrinier/react-native-ble-plx",
         {

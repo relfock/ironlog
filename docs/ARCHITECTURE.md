@@ -171,6 +171,15 @@ illustrations; the one shared template costs 53 KB. The videos are the case
 where this does not apply — they are far too large to embed and are shipped as
 real files instead (`plugins/withExerciseMedia.js`).
 
+The same trap hits the "rest done" notification chime. The rest timer used to
+`require()` the `.wav` and hand the *bundled* sound name to a notification
+channel; in release the compiled resource is invisible to the platform's
+sound lookup, so the alert bubbled up silently. The chime is now shipped as a
+real `res/raw/rest-ding.wav` resource by `plugins/withNotificationSound.js`, and
+the channel resolves it by basename. (A channel's sound is also cached by
+Android — changing the sound on a channel requires a new channel id, so the
+`rest-timer` channel was re-created as `rest-timer-sound-v2`.)
+
 ### Gotcha: react-native-svg cannot parse a compact transform
 
 The Everkinetic files used `transform="matrix(.1 0 0-.1 0 960)"`. The SVG
