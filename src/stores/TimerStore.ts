@@ -18,9 +18,15 @@ import {
   progress,
   remainingSec,
   resume,
+  scheduledFireAtMs,
   startRestTimer,
   type RestTimerState,
 } from '@/domain/restTimer';
+import {
+  cancelRestDoneNotif,
+  configureRestNotifications,
+  scheduleRestDoneNotif,
+} from '@/lib/restNotifications';
 
 export class TimerStore {
   /** Ticks each second to drive re-renders. Not a source of truth. */
@@ -48,6 +54,7 @@ export class TimerStore {
 
   constructor() {
     makeAutoObservable(this, {}, { autoBind: true });
+    configureRestNotifications();
   }
 
   start(): void {
@@ -94,6 +101,7 @@ export class TimerStore {
       this.rest = startRestTimer(durationSec, Date.now());
       this.firedFor = null;
     });
+    this.scheduleBackgroundAlert();
   }
 
   clearRest(): void {
@@ -101,6 +109,7 @@ export class TimerStore {
       this.rest = null;
       this.firedFor = null;
     });
+    void cancelRestDoneNotif();
   }
 
   adjustRest(deltaSec: number): void {
@@ -110,6 +119,7 @@ export class TimerStore {
       // Extending a finished timer should be able to alert again.
       this.firedFor = null;
     });
+    this.scheduleBackgroundAlert();
   }
 
   togglePause(): void {
@@ -121,6 +131,24 @@ export class TimerStore {
           ? pause(this.rest!, now)
           : resume(this.rest!, now);
     });
+    if (this.rest.pausedAtMs !== null) {
+      void cancelRestDoneNotif();
+    } else {
+      this.scheduleBackgroundAlert();
+    }
+  }
+
+  /**
+   * Hand the alert to the OS so it fires even with the app backgrounded.
+   * Guarded by `scheduledFireAtMs`, which returns null while paused or
+   * already expired, so we never schedule an alert that can't still happen.
+   */
+  private scheduleBackgroundAlert(): void {
+    const rest = this.rest;
+    if (rest === null) return;
+    const fireAtMs = scheduledFireAtMs(rest, Date.now());
+    if (fireAtMs === null) return;
+    void scheduleRestDoneNotif(fireAtMs);
   }
 
   get restRemainingSec(): number | null {

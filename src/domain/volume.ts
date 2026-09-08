@@ -98,9 +98,42 @@ export function accumulateMuscleSets(
   const add = (m: Muscle, n: number) => {
     out.set(m, stripFloatNoise((out.get(m) ?? 0) + n));
   };
+
+  const DELTOID_GROUP: readonly Muscle[] = ['front_delts', 'side_delts', 'rear_delts']; // Wait, typo in my thought. it's front_delts.
+  // Let's be careful with the names.
+  // From domain/types.ts: 'front_delts' | 'side_delts' | 'rear_delts'
+
+  // Correction: Use a proper set for the group.
+  const DELTS = new Set(['front_delts', 'side_delts', 'rear_delts'] as Muscle[]);
+
   for (const e of entries) {
-    for (const m of e.primary) add(m, e.completedSets);
-    for (const m of e.secondary) add(m, e.completedSets * SECONDARY_SET_CREDIT);
+    // Handle non-delt primary muscles
+    for (const m of e.primary) {
+      if (!DELTS.has(m)) add(m, e.completedSets);
+    }
+    // Handle non-delt secondary muscles
+    for (const m of e.secondary) {
+      if (!DELTS.has(m)) add(m, e.completedSets * SECONDARY_SET_CREDIT);
+    }
+
+    // Handle deltoids as a group to avoid duplication
+    const primaryDelts = e.primary.filter((m) => DELTS.has(m));
+    const secondaryDelts = e.secondary.filter((m) => DELTS.has(m));
+
+    let groupCredit = 0;
+    if (primaryDelts.length > 0) {
+      groupCredit = e.completedSets;
+    } else if (secondaryDelts.length > 0) {
+      groupCredit = e.completedSets * SECONDARY_SET_CREDIT;
+    }
+
+    if (groupCredit > 0) {
+      const allDeltsInExercise = [...primaryDelts, ...secondaryDelts];
+      const creditPerDelt = groupCredit / allDeltsInExercise.length;
+      for (const m of allDeltsInExercise) {
+        add(m, creditPerDelt);
+      }
+    }
   }
   return out;
 }
