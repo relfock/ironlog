@@ -25,6 +25,8 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM",
         "android.permission.VIBRATE",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
@@ -58,6 +60,7 @@
       "expo-sharing",
       "./plugins/withGradleMemory",
       "./plugins/withNotificationSound",
+      "./plugins/withWorkoutKeepAlive",
       [
         "@sfourdrinier/react-native-ble-plx",
         {

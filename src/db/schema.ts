@@ -164,6 +164,8 @@ export const workouts = sqliteTable(
     name: text('name').notNull(),
     /** 'in_progress' | 'completed'. Exactly one row may be in_progress. */
     status: text('status').notNull().default('in_progress'),
+    /** 'workout' (strength session) | 'activity' (cardio session). */
+    kind: text('kind').notNull().default('workout'),
     startedAt: integer('started_at').notNull(),
     endedAt: integer('ended_at'),
     /** Excludes paused time, so it is not simply endedAt − startedAt. */
@@ -227,6 +229,15 @@ export const workoutSets = sqliteTable(
     avgBpm: real('avg_bpm'),
     /** HR-tracked cardio (elliptical): kcal burned in this segment. */
     caloriesKcal: real('calories_kcal'),
+    /** HR-tracked cardio: seconds spent in each of the six HR zones this
+     *  segment.  All null until the workout finishes, which is when the zone
+     *  breakdown is persisted per segment (see ActiveWorkoutStore.finish). */
+    zone0Sec: integer('zone0_sec'),
+    zone1Sec: integer('zone1_sec'),
+    zone2Sec: integer('zone2_sec'),
+    zone3Sec: integer('zone3_sec'),
+    zone4Sec: integer('zone4_sec'),
+    zone5Sec: integer('zone5_sec'),
     rpe: real('rpe'),
     completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
     completedAt: integer('completed_at'),

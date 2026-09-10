@@ -138,6 +138,10 @@ export const ExerciseDetailScreen = observer(function ExerciseDetailScreen() {
     );
   }
 
+  // HR-tracked cardio (e.g. Elliptical) has no weight/reps progress and no
+  // form notes attached to the movement, so those cards make no sense there.
+  const isCardio = exercise.trackingType === 'hr_cardio';
+
   const confirmDelete = () => {
     const custom = exercise.isCustom;
     Alert.alert(
@@ -307,92 +311,96 @@ export const ExerciseDetailScreen = observer(function ExerciseDetailScreen() {
           )}
         </Card>
 
-        <Card style={{ marginTop: spacing.md }}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{
-              gap: spacing.sm,
-              paddingRight: spacing.md,
-              marginBottom: spacing.sm,
-            }}
-          >
-            {METRICS.map((m) => {
-              const on = metric === m.key;
-              return (
-                <Pressable
-                  key={m.key}
-                  onPress={() => setMetric(m.key)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
-                  style={[
-                    styles.chip,
-                    {
-                      backgroundColor: on ? palette.accent : palette.surfaceRaised,
-                      borderColor: on ? palette.accent : palette.border,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{
-                      color: on ? palette.accentText : palette.textMuted,
-                      fontSize: fontSize.sm,
-                      fontWeight: '600',
-                    }}
-                  >
-                    {m.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-
-          <View style={{ position: 'relative' }}>
-            <LineChartCard
-              title="Progression"
-              subtitle={
-                loading
-                  ? 'Loading…'
-                  : `${filteredSeries.length} point${filteredSeries.length === 1 ? '' : 's'} · ${points.length} session${points.length === 1 ? '' : 's'} logged`
-              }
-              data={filteredSeries}
-              formatY={formatAxisTick}
-            />
-            <Pressable
-              onPress={chooseSpan}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: false }}
-              style={[styles.chip, styles.spanChip]}
-            >
-              <Text style={{ color: palette.textMuted, fontSize: fontSize.sm, fontWeight: '600' }}>
-                {SPANS.find((s) => s.key === span)!.label}
-              </Text>
-              <Text style={{ color: palette.textMuted, fontSize: fontSize.sm, fontWeight: '600' }}>▾</Text>
-            </Pressable>
-          </View>
-        </Card>
-
-        <Card style={{ marginTop: spacing.md }}>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <H2>Notes</H2>
-            <Text
-              onPress={() => setEditingNotes(true)}
-              accessibilityRole="button"
-              style={{
-                color: palette.accent,
-                fontSize: fontSize.sm,
-                fontWeight: '700',
+        {!isCardio ? (
+          <Card style={{ marginTop: spacing.md }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                gap: spacing.sm,
+                paddingRight: spacing.md,
+                marginBottom: spacing.sm,
               }}
             >
-              Edit
-            </Text>
-          </Row>
-          <Body muted style={{ marginTop: spacing.xs }}>
-            {exercise.notes !== null && exercise.notes.length > 0
-              ? exercise.notes
-              : 'No notes. Add a cue, a setup reminder, or a link to a form video.'}
-          </Body>
-        </Card>
+              {METRICS.map((m) => {
+                const on = metric === m.key;
+                return (
+                  <Pressable
+                    key={m.key}
+                    onPress={() => setMetric(m.key)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: on ? palette.accent : palette.surfaceRaised,
+                        borderColor: on ? palette.accent : palette.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: on ? palette.accentText : palette.textMuted,
+                        fontSize: fontSize.sm,
+                        fontWeight: '600',
+                      }}
+                    >
+                      {m.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            <View style={{ position: 'relative' }}>
+              <LineChartCard
+                title="Progression"
+                subtitle={
+                  loading
+                    ? 'Loading…'
+                    : `${filteredSeries.length} point${filteredSeries.length === 1 ? '' : 's'} · ${points.length} session${points.length === 1 ? '' : 's'} logged`
+                }
+                data={filteredSeries}
+                formatY={formatAxisTick}
+              />
+              <Pressable
+                onPress={chooseSpan}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: false }}
+                style={[styles.chip, styles.spanChip]}
+              >
+                <Text style={{ color: palette.textMuted, fontSize: fontSize.sm, fontWeight: '600' }}>
+                  {SPANS.find((s) => s.key === span)!.label}
+                </Text>
+                <Text style={{ color: palette.textMuted, fontSize: fontSize.sm, fontWeight: '600' }}>▾</Text>
+              </Pressable>
+            </View>
+          </Card>
+        ) : null}
+
+        {!isCardio ? (
+          <Card style={{ marginTop: spacing.md }}>
+            <Row style={{ justifyContent: 'space-between' }}>
+              <H2>Notes</H2>
+              <Text
+                onPress={() => setEditingNotes(true)}
+                accessibilityRole="button"
+                style={{
+                  color: palette.accent,
+                  fontSize: fontSize.sm,
+                  fontWeight: '700',
+                }}
+              >
+                Edit
+              </Text>
+            </Row>
+            <Body muted style={{ marginTop: spacing.xs }}>
+              {exercise.notes !== null && exercise.notes.length > 0
+                ? exercise.notes
+                : 'No notes. Add a cue, a setup reminder, or a link to a form video.'}
+            </Body>
+          </Card>
+        ) : null}
 
         {exercise.isCustom ? (
           <Button

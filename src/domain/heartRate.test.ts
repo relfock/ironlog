@@ -51,7 +51,7 @@ describe('parseHeartRateMeasurement', () => {
     expect(m.rrIntervalMs?.[1]).toBeCloseTo((0x01c9 * 1000) / 1024, 0);
   });
 
-  it('parses a realistic Whoop broadcast packet (uint8 bpm + R-R)', () => {
+  it('parses a realistic broadcast packet (uint8 bpm + R-R)', () => {
     const m = parseHeartRateMeasurement([0x10, 0x67, 0x18, 0x01, 0x1a, 0x01]);
     expect(m.bpm).toBe(103);
     expect(m.rrIntervalMs?.length).toBe(2);

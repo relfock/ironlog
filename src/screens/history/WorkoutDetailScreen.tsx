@@ -29,6 +29,7 @@ import {
   type WorkoutData,
 } from '@/db/repositories/workouts';
 import type { Muscle } from '@/domain/types';
+import { estimateMaxHr, zoneSplitSeconds } from '@/domain/heartRateZones';
 import { formatDuration, formatDurationCompact, formatWeight, fromKg, toKg } from '@/domain/units';
 import type { RootStackParamList } from '@/navigation/types';
 import { useSettings } from '@/stores/RootStore';
@@ -76,12 +77,13 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
 
   const unit = settings.values.weightUnit;
 
-  // Classic 220 − age HRmax, only when the birth year has been provided.
+  // Same profile-based estimate as the zone model, so the HR curve's band
+  // edges line up with the zone minutes below it.
   const estimatedMaxHr = (() => {
     if (settings.values.birthYear === null) return undefined;
     const age = new Date().getFullYear() - settings.values.birthYear;
     if (age <= 0) return undefined;
-    return 220 - age;
+    return estimateMaxHr(age, settings.values.sex) ?? undefined;
   })();
 
   if (workout === null) {
@@ -91,6 +93,10 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
       </ScrollView>
     );
   }
+
+  // Cardio ("activity") sessions have no sets/volume/PRs, so the summary
+  // card and "Save as routine" affordance are meaningless there.
+  const isActivity = workout.kind === 'activity';
 
   const confirmDelete = () => {
     Alert.alert('Delete workout?', 'This cannot be undone.', [
@@ -134,21 +140,29 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
           })}
         </Caption>
 
-        <Card style={{ marginTop: spacing.lg }}>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <Stat label="DURATION" value={formatDurationCompact(workout.durationSec ?? 0)} />
-            <Stat
-              label="VOLUME"
-              value={`${formatWeight(workout.totalVolumeKg, unit)} ${unit}`}
-            />
-            <Stat label="SETS" value={String(workout.totalSets)} />
-            <Stat label="PRs" value={String(workout.prCount)} />
-          </Row>
-        </Card>
+        {!isActivity ? (
+          <Card style={{ marginTop: spacing.lg }}>
+            <Row style={{ justifyContent: 'space-between' }}>
+              <Stat label="DURATION" value={formatDurationCompact(workout.durationSec ?? 0)} />
+              <Stat
+                label="VOLUME"
+                value={`${formatWeight(workout.totalVolumeKg, unit)} ${unit}`}
+              />
+              <Stat label="SETS" value={String(workout.totalSets)} />
+              <Stat label="PRs" value={String(workout.prCount)} />
+            </Row>
+          </Card>
+        ) : null}
 
         {hrSamples.length >= 1 ? (
           <Card style={{ marginTop: spacing.md }}>
             <HeartRateChartCard samples={hrSamples} maxHr={estimatedMaxHr} />
+            <ZoneBreakdown
+              workout={workout}
+              samples={hrSamples}
+              maxHr={estimatedMaxHr}
+              palette={palette}
+            />
           </Card>
         ) : null}
 
@@ -353,12 +367,14 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
           );
         })}
 
-        <Button
-          label="Save as routine"
-          variant="secondary"
-          onPress={() => setSaving(true)}
-          style={{ marginTop: spacing.lg }}
-        />
+        {!isActivity ? (
+          <Button
+            label="Save as routine"
+            variant="secondary"
+            onPress={() => setSaving(true)}
+            style={{ marginTop: spacing.lg }}
+          />
+        ) : null}
         <Button
           label="Delete workout"
           variant="ghost"
@@ -489,6 +505,95 @@ function Stat({ label, value }: { label: string; value: string }) {
       >
         {value}
       </Text>
+    </View>
+  );
+}
+
+function formatZoneSeconds(sec: number): string {
+  const s = Math.max(0, Math.round(sec));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  if (m === 0) return `${r}s`;
+  return r === 0 ? `${m}m` : `${m}m ${r}s`;
+}
+
+/**
+ * Post-workout HR zone minutes, derived from the workout's stored HR trace
+ * against the CURRENT zone boundaries and profile max HR — the same model the
+ * live card tallies, so History always agrees with the session overview. When
+ * the trace is missing (session recorded without a strap and without a
+ * workout-level sampler) it falls back to the per-zone columns persisted at
+ * finish.
+ */
+function ZoneBreakdown({
+  workout,
+  samples,
+  maxHr,
+  palette,
+}: {
+  workout: WorkoutData;
+  samples: readonly WorkoutHeartRateSampleRow[];
+  maxHr: number | undefined;
+  palette: ReturnType<typeof usePalette>;
+}) {
+  const zones = useSettings().zoneSet;
+  const totals: [number, number, number, number, number, number] = [0, 0, 0, 0, 0, 0];
+
+  if (samples.length > 1 && maxHr !== undefined) {
+    const derived = zoneSplitSeconds(samples, maxHr, zones);
+    if (derived !== null) {
+      for (let i = 0; i < totals.length; i++) {
+        totals[i] = Math.round(derived[i] ?? 0);
+      }
+    }
+  } else {
+    for (const we of workout.exercises) {
+      if (we.trackingType !== 'hr_cardio') continue;
+      for (const s of we.sets) {
+        totals[0] += s.zone0Sec ?? 0;
+        totals[1] += s.zone1Sec ?? 0;
+        totals[2] += s.zone2Sec ?? 0;
+        totals[3] += s.zone3Sec ?? 0;
+        totals[4] += s.zone4Sec ?? 0;
+        totals[5] += s.zone5Sec ?? 0;
+      }
+    }
+  }
+
+  const total = totals.reduce((a, b) => a + b, 0);
+  if (total <= 0) return null;
+
+  return (
+    <View style={{ marginTop: spacing.md }}>
+      <Caption>ZONE MINUTES</Caption>
+      <View style={{ marginTop: spacing.sm, flexDirection: 'row', overflow: 'hidden', borderRadius: 6 }}>
+        {zones.map((z, i) => {
+          const t = totals[i] ?? 0;
+          if (t <= 0) return null;
+          return (
+            <View
+              key={z.label}
+              style={{ flex: t / total, height: 10, backgroundColor: z.color }}
+            />
+          );
+        })}
+      </View>
+      <View style={{ marginTop: spacing.sm, flexWrap: 'wrap', flexDirection: 'row' }}>
+        {zones.map((z, i) => {
+          const t = totals[i] ?? 0;
+          return t > 0 ? (
+            <View
+              key={z.label}
+              style={{ flexDirection: 'row', alignItems: 'center', marginRight: spacing.md, marginTop: 4 }}
+            >
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: z.color, marginRight: 4 }} />
+              <Text style={{ color: palette.textMuted, fontSize: fontSize.xs }}>
+                {z.label} {formatZoneSeconds(t)}
+              </Text>
+            </View>
+          ) : null;
+        })}
+      </View>
     </View>
   );
 }

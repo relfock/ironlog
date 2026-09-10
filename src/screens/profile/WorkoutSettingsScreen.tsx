@@ -1,6 +1,7 @@
 import { observer } from 'mobx-react-lite';
 import React from 'react';
 import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Caption } from '@/components/ui';
 import {
   SegmentedControl,
@@ -27,6 +28,7 @@ const SOUND_LEVELS: readonly { value: SoundLevel; label: string }[] = [
  */
 export const WorkoutSettingsScreen = observer(function WorkoutSettingsScreen() {
   const settings = useSettings();
+  const navigation = useNavigation();
   const v = settings.values;
 
   const chooseRest = () => {
@@ -112,9 +114,14 @@ export const WorkoutSettingsScreen = observer(function WorkoutSettingsScreen() {
       <SettingsSection title="Heart rate">
         <SettingsToggle
           label="Heart rate monitor"
-          description="Track live heart rate on Android via a BLE monitor (Whoop broadcast, Polar, Wahoo) and graph it in finished workouts"
+          description="Track live heart rate via a BLE monitor (heart-rate strap, Polar, Wahoo) and graph it in finished workouts"
           value={v.heartRateEnabled}
           onChange={(x) => void settings.set('heartRateEnabled', x)}
+        />
+        <SettingsRow
+          label="Heart rate settings"
+          description="Set your heart-rate zone boundaries in bpm"
+          onPress={() => navigation.navigate('HeartRateZones')}
         />
       </SettingsSection>
 

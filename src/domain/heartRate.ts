@@ -2,8 +2,8 @@
  * Parsing for the Bluetooth SIG "Heart Rate" service (0x180D),
  * Heart Rate Measurement characteristic (0x2A37).
  *
- * This is the format broadcast by Whoop 4.0 in "Broadcast HR" mode and by
- * standard HR straps (Polar H10, Wahoo, ...). Byte layout:
+ * This is the standard Bluetooth SIG Heart Rate Measurement format broadcast
+ * by HR straps and watches (Polar, Wahoo, …). Byte layout:
  *
  *   byte 0        flags bitfield
  *   byte 1..      heart rate value (uint8 or uint16 LE, flag bit 0)
@@ -12,6 +12,8 @@
  *
  * Parsing is pure so it unit-tests without a BLE stack.
  */
+import type { HrZoneSet } from './heartRateZones';
+import { DEFAULT_HR_ZONES } from './heartRateZones';
 
 export interface HeartRateMeasurement {
   /** Beats per minute. */
@@ -93,17 +95,20 @@ export interface HeartRateSummary {
   avgBpm: number;
   maxBpm: number;
   minBpm: number;
-  /** Seconds spent in HR zone 2 (>= 60% HRmax) and above, best-effort. */
+  /** Seconds spent at or above the configured Z2 floor, best-effort. */
   zone2Sec: number;
 }
 
 /**
  * Summary stats for the post-workout card. `maxHr` (or the classic
  * 220 − age) anchors the zone split; falls back to measured max when unknown.
+ * The "Z2+" floor uses `zones`, so a user's edited boundaries change the
+ * summary the same way they change the live pill.
  */
 export function summariseHeartRate(
   samples: { recordedAt: number; bpm: number }[],
   maxHr?: number,
+  zones: HrZoneSet = DEFAULT_HR_ZONES,
 ): HeartRateSummary | null {
   if (samples.length === 0) return null;
 
@@ -116,7 +121,8 @@ export function summariseHeartRate(
     total += s.bpm;
   }
 
-  const zone2Floor = ((maxHr ?? max) * 0.6) | 0;
+  const z2 = zones[2];
+  const zone2Floor = ((maxHr ?? max) * (z2?.min ?? 0.6)) | 0;
   let zone2Sec = 0;
   for (let i = 1; i < samples.length; i++) {
     const prev = samples[i - 1];

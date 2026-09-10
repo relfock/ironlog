@@ -3,9 +3,10 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 import { Text } from 'react-native';
 import { HomeScreen } from '@/screens/home/HomeScreen';
-import { StartWorkoutScreen } from '@/screens/home/StartWorkoutScreen';
+import { StartHubScreen } from '@/screens/home/StartHubScreen';
 import { RoutinesScreen } from '@/screens/routines/RoutinesScreen';
 import { RoutineEditorScreen } from '@/screens/routines/RoutineEditorScreen';
+import { ActivitiesScreen } from '@/screens/activities/ActivitiesScreen';
 import { ExercisesScreen } from '@/screens/exercises/ExercisesScreen';
 import { ExercisePickerScreen } from '@/screens/exercises/ExercisePickerScreen';
 import { ExerciseDetailScreen } from '@/screens/exercises/ExerciseDetailScreen';
@@ -17,6 +18,7 @@ import { StatisticsScreen } from '@/screens/stats/StatisticsScreen';
 import { ProfileScreen } from '@/screens/profile/ProfileScreen';
 import { SettingsScreen } from '@/screens/profile/SettingsScreen';
 import { WorkoutSettingsScreen } from '@/screens/profile/WorkoutSettingsScreen';
+import { HeartRateZonesScreen } from '@/screens/profile/HeartRateZonesScreen';
 import { MeasurementsScreen } from '@/screens/profile/MeasurementsScreen';
 import { PlateSettingsScreen } from '@/screens/profile/PlateSettingsScreen';
 import { CreditsScreen } from '@/screens/profile/CreditsScreen';
@@ -55,19 +57,9 @@ function Tabs() {
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarIcon: tabIcon('🏠') }} />
       <Tab.Screen
-        name="Routines"
-        component={RoutinesScreen}
-        options={{ tabBarIcon: tabIcon('📋') }}
-      />
-      <Tab.Screen
-        name="StartWorkout"
-        component={StartWorkoutScreen}
+        name="Start"
+        component={StartHubScreen}
         options={{ title: 'Start', tabBarIcon: tabIcon('➕') }}
-      />
-      <Tab.Screen
-        name="Exercises"
-        component={ExercisesScreen}
-        options={{ tabBarIcon: tabIcon('🏋️') }}
       />
       <Tab.Screen
         name="Profile"
@@ -102,6 +94,16 @@ export function RootNavigator() {
         options={{ title: '' }}
       />
       <Stack.Screen
+        name="ExerciseLibrary"
+        component={ExercisesScreen}
+        options={{ title: 'Exercise Library' }}
+      />
+      <Stack.Screen
+        name="Activities"
+        component={ActivitiesScreen}
+        options={{ title: 'Activity' }}
+      />
+      <Stack.Screen
         name="CustomExercise"
         component={CustomExerciseScreen}
         options={{ title: 'Custom Exercise' }}
@@ -115,6 +117,11 @@ export function RootNavigator() {
         name="RoutineEditor"
         component={RoutineEditorScreen}
         options={{ title: 'Edit Routine', headerTitleAlign: 'center' }}
+      />
+      <Stack.Screen
+        name="StrengthTrainer"
+        component={RoutinesScreen}
+        options={{ title: 'Strength Trainer' }}
       />
       {/*
         Note: the RoutineEditor renders its own sticky Cancel/Edit Routine/Update
@@ -142,6 +149,11 @@ export function RootNavigator() {
         name="WorkoutSettings"
         component={WorkoutSettingsScreen}
         options={{ title: 'Workout Settings' }}
+      />
+      <Stack.Screen
+        name="HeartRateZones"
+        component={HeartRateZonesScreen}
+        options={{ title: 'Heart Rate Zones' }}
       />
       <Stack.Screen
         name="PlateSettings"

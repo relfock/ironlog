@@ -3,6 +3,7 @@ import { ActiveWorkoutStore } from './ActiveWorkoutStore';
 import { HeartRateStore } from './HeartRateStore';
 import { SettingsStore } from './SettingsStore';
 import { TimerStore } from './TimerStore';
+import { startWorkoutKeepAlive } from '@/lib/keepAlive';
 
 /**
  * Ephemeral session state only. Anything persisted is read through Drizzle's
@@ -28,6 +29,9 @@ export class RootStore {
     this.timer.start();
     // Recover a session the user was mid-way through when the app died.
     await this.activeWorkout.resume();
+    // TEMP-investigation: start the keep-alive at boot unconditionally so the
+    // foreground-service lifecycle can be observed without starting a workout.
+    startWorkoutKeepAlive('boot-test');
   }
 
   dispose(): void {

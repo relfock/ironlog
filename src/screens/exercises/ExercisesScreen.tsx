@@ -5,14 +5,14 @@ import React from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExerciseLibrary } from './ExerciseLibrary';
 import { Button, H1, Row } from '@/components/ui';
-import type { TabParamList } from '@/navigation/types';
+import type { RootStackParamList } from '@/navigation/types';
 import { usePalette } from '@/theme/ThemeProvider';
 import { spacing } from '@/theme/tokens';
 
 export const ExercisesScreen = observer(function ExercisesScreen() {
   const palette = usePalette();
   const navigation = useNavigation();
-  const route = useRoute<RouteProp<TabParamList, 'Exercises'>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'ExerciseLibrary'>>();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: palette.bg }} edges={['top']}>

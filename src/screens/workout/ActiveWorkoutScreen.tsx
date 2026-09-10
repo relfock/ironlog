@@ -1,9 +1,8 @@
-import { useNavigation } from '@react-navigation/native';
+import { StackActions, useNavigation } from '@react-navigation/native';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { observer } from 'mobx-react-lite';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   PanResponder,
   Platform,
@@ -14,12 +13,17 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActionSheet } from '@/components/ActionSheet';
 import { PlateCalculatorSheet } from '@/components/PlateCalculatorSheet';
 import { PrBanner } from '@/components/PrBanner';
 import { PromptModal } from '@/components/PromptModal';
 import { RestTimerBar } from '@/components/RestTimerBar';
 import { HeartRateSheet } from '@/components/HeartRateSheet';
 import { Body, Button, Caption, EmptyState, Row } from '@/components/ui';
+import {
+  CardioActivityCard,
+  type CardioActivityCardHandle,
+} from '@/components/CardioActivityCard';
 import { WorkoutExerciseCard } from './WorkoutExerciseCard';
 import { formatDuration, formatWeight } from '@/domain/units';
 import { useActiveWorkout, useHeartRate, useSettings } from '@/stores/RootStore';
@@ -44,6 +48,15 @@ export const ActiveWorkoutScreen = observer(function ActiveWorkoutScreen() {
   const [plateOpen, setPlateOpen] = useState(false);
   const [editing, setEditing] = useState<'name' | 'notes' | null>(null);
   const [hrOpen, setHrOpen] = useState(false);
+  // Which confirmation the header's Finish button is asking about. Rendered as
+  // the app's designed centred dialog (ActionSheet), not the platform alert.
+  const [finishSheet, setFinishSheet] = useState<'activity' | 'workout' | 'empty' | null>(null);
+
+  // A pure activity session (kind === 'activity') has no strength logging —
+  // single cardio segment, no notes, no add-exercise, and the live card gets
+  // the whole screen.
+  const isActivity = active.workout?.kind === 'activity';
+  const activityCardRef = useRef<CardioActivityCardHandle>(null);
 
   useKeepAwakeIfEnabled(settings.values.keepAwake);
 
@@ -187,51 +200,47 @@ export const ActiveWorkoutScreen = observer(function ActiveWorkoutScreen() {
   }, []);
 
   const confirmFinish = useCallback(() => {
-    if (active.completedSetCount === 0) {
-      Alert.alert(
-        'No sets completed',
-        'Finish anyway and save an empty workout, or keep going?',
-        [
-          { text: 'Keep going', style: 'cancel' },
-          {
-            text: 'Discard workout',
-            style: 'destructive',
-            onPress: () => {
-              void active.discard().then(() => navigation.goBack());
-            },
-          },
-        ],
-      );
-      return;
-    }
-
-    const n = active.completedSetCount;
-    Alert.alert('Finish workout?', `${n} set${n === 1 ? '' : 's'} completed.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Finish',
-        onPress: () => {
-          void active.finish().then(() => navigation.goBack());
-        },
-      },
-    ]);
-  }, [active, navigation]);
+    setFinishSheet(active.completedSetCount === 0 ? 'empty' : 'workout');
+  }, [active]);
 
   const confirmDiscard = useCallback(() => {
-    Alert.alert(
-      'Discard workout?',
-      'Everything logged in this session will be lost.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Discard',
-          style: 'destructive',
-          onPress: () => {
-            void active.discard().then(() => navigation.goBack());
-          },
-        },
-      ],
+    void active.discard().then(() => navigation.goBack());
+  }, [active, navigation]);
+
+  const discardAndClose = useCallback(() => {
+    setFinishSheet(null);
+    confirmDiscard();
+  }, [confirmDiscard]);
+
+  const finishAndClose = useCallback(() => {
+    const id = active.workout?.id;
+    setFinishSheet(null);
+    if (id === undefined) {
+      void active.finish().then(() => navigation.goBack());
+      return;
+    }
+    void active.finish().then(() =>
+      navigation.dispatch(StackActions.replace('WorkoutDetail', { workoutId: id })),
     );
+  }, [active, navigation]);
+
+  // A cardio activity's Finish lives in the header only (no redundant button
+  // in the card). It completes the in-flight segment with its live data, then
+  // finishes the workout — after an explicit confirmation.
+  const finishActivity = useCallback(() => setFinishSheet('activity'), []);
+
+  const finishActivityAndClose = useCallback(() => {
+    const id = active.workout?.id;
+    setFinishSheet(null);
+    void (async () => {
+      await activityCardRef.current?.completeSegment();
+      await active.finish();
+      if (id === undefined) {
+        navigation.goBack();
+        return;
+      }
+      navigation.dispatch(StackActions.replace('WorkoutDetail', { workoutId: id }));
+    })();
   }, [active, navigation]);
 
   if (!active.isActive) {
@@ -254,7 +263,7 @@ export const ActiveWorkoutScreen = observer(function ActiveWorkoutScreen() {
           { backgroundColor: palette.surface, borderBottomColor: palette.border },
         ]}
       >
-        <Row style={{ justifyContent: 'space-between' }}>
+        <Row style={styles.headRow}>
           <Pressable
             onPress={() => navigation.goBack()}
             accessibilityRole="button"
@@ -266,40 +275,66 @@ export const ActiveWorkoutScreen = observer(function ActiveWorkoutScreen() {
             </Text>
           </Pressable>
 
-          <Button label="Finish" onPress={confirmFinish} style={styles.finish} />
-        </Row>
+          {isActivity ? (
+            <Pressable
+              onPress={() => setEditing('name')}
+              accessibilityRole="button"
+              accessibilityLabel={`Workout name: ${active.workout?.name ?? ''}. Tap to rename.`}
+              style={styles.activityTitleWrap}
+            >
+              <Text
+                numberOfLines={1}
+                style={[styles.activityTitle, { color: palette.text }]}
+              >
+                {active.workout?.name ?? 'Workout'}
+              </Text>
+            </Pressable>
+          ) : null}
 
-        <Pressable
-          onPress={() => setEditing('name')}
-          accessibilityRole="button"
-          accessibilityLabel={`Workout name: ${active.workout?.name ?? ''}. Tap to rename.`}
-          style={{ marginTop: spacing.sm }}
-        >
-          <Text
-            numberOfLines={1}
-            style={{ color: palette.text, fontSize: fontSize.lg, fontWeight: '700' }}
-          >
-            {active.workout?.name ?? 'Workout'}
-          </Text>
-        </Pressable>
-
-        <Row style={{ marginTop: spacing.md, justifyContent: 'space-between' }}>
-          <Stat label="DURATION" value={formatDuration(active.elapsedSec)} />
-          <Stat
-            label="VOLUME"
-            value={`${formatWeight(active.totalVolumeKg, settings.values.weightUnit)} ${settings.values.weightUnit}`}
+          <Button
+            label="Finish"
+            onPress={isActivity ? finishActivity : confirmFinish}
+            style={styles.finish}
           />
-          <Stat label="SETS" value={`${active.completedSetCount}/${active.totalSetCount}`} />
         </Row>
 
-        {settings.values.heartRateEnabled ? (
+        {!isActivity ? (
+          <>
+            <Pressable
+              onPress={() => setEditing('name')}
+              accessibilityRole="button"
+              accessibilityLabel={`Workout name: ${active.workout?.name ?? ''}. Tap to rename.`}
+              style={{ marginTop: spacing.sm }}
+            >
+              <Text
+                numberOfLines={1}
+                style={{ color: palette.text, fontSize: fontSize.lg, fontWeight: '700' }}
+              >
+                {active.workout?.name ?? 'Workout'}
+              </Text>
+            </Pressable>
+
+            <Row style={{ marginTop: spacing.md, justifyContent: 'space-between' }}>
+              <Stat label="DURATION" value={formatDuration(active.elapsedSec)} />
+              <Stat
+                label="VOLUME"
+                value={`${formatWeight(active.totalVolumeKg, settings.values.weightUnit)} ${settings.values.weightUnit}`}
+              />
+              <Stat label="SETS" value={`${active.completedSetCount}/${active.totalSetCount}`} />
+            </Row>
+          </>
+        ) : null}
+
+        {!isActivity && settings.values.heartRateEnabled ? (
           <Pressable
             onPress={() => setHrOpen(true)}
             accessibilityRole="button"
             accessibilityLabel={
               heartRate.liveBpm !== null
                 ? `Heart rate ${heartRate.liveBpm} beats per minute. Tap to change monitor.`
-                : 'Heart rate. Tap to connect a monitor.'
+                : heartRate.status === 'reconnecting'
+                  ? 'Heart-rate connection lost. Tap to manage the monitor.'
+                  : 'Heart rate. Tap to connect a monitor.'
             }
             style={[
               styles.hrPill,
@@ -312,7 +347,13 @@ export const ActiveWorkoutScreen = observer(function ActiveWorkoutScreen() {
             <View
               style={[
                 styles.hrDot,
-                { backgroundColor: heartRate.connected ? palette.success : palette.textFaint },
+                {
+                  backgroundColor: heartRate.connected
+                    ? palette.success
+                    : heartRate.status === 'reconnecting'
+                      ? palette.accent
+                      : palette.textFaint,
+                },
               ]}
             />
             <Text style={{ color: palette.text, fontSize: fontSize.sm, fontWeight: '700' }}>
@@ -320,16 +361,36 @@ export const ActiveWorkoutScreen = observer(function ActiveWorkoutScreen() {
                 ? `${heartRate.liveBpm} bpm`
                 : heartRate.connected
                   ? 'Heart rate monitor connected'
-                  : 'Heart rate'}
+                  : heartRate.status === 'reconnecting'
+                    ? 'Reconnecting…'
+                    : 'Heart rate'}
             </Text>
           </Pressable>
         ) : null}
       </View>
 
-      <RestTimerBar />
-      <PrBanner />
+      {!isActivity ? (
+        <>
+          <RestTimerBar />
+          <PrBanner />
+        </>
+      ) : null}
 
-      <KeyboardAvoidingView
+      {isActivity ? (
+        <View style={styles.screen}>
+          <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+            {active.exercises.map((we) => (
+              <CardioActivityCard
+                key={we.id}
+                ref={activityCardRef}
+                we={we}
+                fullscreen
+              />
+            ))}
+          </ScrollView>
+        </View>
+      ) : (
+        <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
@@ -415,13 +476,6 @@ export const ActiveWorkoutScreen = observer(function ActiveWorkoutScreen() {
                   : 'Tap to add a note about this session.'}
               </Body>
             </Pressable>
-
-            <Button
-              label="Discard workout"
-              variant="ghost"
-              onPress={confirmDiscard}
-              style={{ marginTop: spacing.lg }}
-            />
           </ScrollView>
 
           {dragLineTop !== null ? (
@@ -435,6 +489,7 @@ export const ActiveWorkoutScreen = observer(function ActiveWorkoutScreen() {
           ) : null}
         </View>
       </KeyboardAvoidingView>
+      )}
 
       <PlateCalculatorSheet
         visible={plateOpen}
@@ -466,6 +521,52 @@ export const ActiveWorkoutScreen = observer(function ActiveWorkoutScreen() {
           setEditing(null);
           void active.setNotes(notes);
         }}
+      />
+
+      <ActionSheet
+        visible={finishSheet !== null}
+        position="center"
+        title={
+          finishSheet === 'activity'
+            ? 'Finish activity?'
+            : finishSheet === 'empty'
+              ? 'No sets completed'
+              : 'Finish workout?'
+        }
+        message={
+          finishSheet === 'activity'
+            ? `${formatDuration(active.elapsedSec)} tracked so far.`
+            : finishSheet === 'empty'
+              ? 'Finish anyway and save an empty workout, or keep going?'
+              : `${active.completedSetCount} set${active.completedSetCount === 1 ? '' : 's'} completed.`
+        }
+        actions={
+          finishSheet === 'empty'
+            ? [
+                { key: 'keep-going', label: 'Keep going', onPress: () => setFinishSheet(null) },
+                {
+                  key: 'discard',
+                  label: 'Discard workout',
+                  destructive: true,
+                  onPress: discardAndClose,
+                },
+              ]
+            : [
+                { key: 'cancel', label: 'Cancel', onPress: () => setFinishSheet(null) },
+                {
+                  key: 'discard',
+                  label: 'Discard workout',
+                  destructive: true,
+                  onPress: discardAndClose,
+                },
+                {
+                  key: 'finish',
+                  label: 'Finish',
+                  onPress: finishSheet === 'activity' ? finishActivityAndClose : finishAndClose,
+                },
+              ]
+        }
+        onClose={() => setFinishSheet(null)}
       />
     </SafeAreaView>
   );
@@ -528,7 +629,22 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  headRow: { justifyContent: 'space-between', alignItems: 'center' },
   finish: { minHeight: 38, paddingHorizontal: spacing.xl },
+  activityTitleWrap: {
+    position: 'absolute',
+    left: 92,
+    right: 92,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activityTitle: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   scroll: { padding: spacing.md, paddingBottom: spacing.xxl },
   dropLine: {
     position: 'absolute',

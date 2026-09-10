@@ -13,12 +13,14 @@ export type Action = { key: string; label: string; destructive?: boolean; onPres
 export function ActionSheet({
   visible,
   title,
+  message,
   actions,
   onClose,
   position = 'bottom',
 }: {
   visible: boolean;
   title?: string;
+  message?: string;
   actions: readonly Action[];
   onClose: () => void;
   position?: 'bottom' | 'center';
@@ -41,6 +43,9 @@ export function ActionSheet({
           >
             {title !== undefined ? (
               <Text style={[styles.centerTitle, { color: palette.text }]}>{title}</Text>
+            ) : null}
+            {message !== undefined ? (
+              <Text style={[styles.centerMessage, { color: palette.textMuted }]}>{message}</Text>
             ) : null}
             <ScrollView style={styles.actionsScroll} showsVerticalScrollIndicator={false}>
               {actions.map((a, i) => (
@@ -83,6 +88,10 @@ export function ActionSheet({
             <Text style={[styles.title, { color: palette.text }]} numberOfLines={1}>
               {title}
             </Text>
+          ) : null}
+
+          {message !== undefined ? (
+            <Text style={[styles.message, { color: palette.textMuted }]}>{message}</Text>
           ) : null}
 
           <ScrollView style={styles.actionsScroll} showsVerticalScrollIndicator={false}>
@@ -136,6 +145,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     textAlign: 'center',
   },
+  centerMessage: {
+    fontSize: fontSize.md,
+    lineHeight: 22,
+    marginTop: -spacing.sm,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
   sheet: {
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
@@ -154,6 +170,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize.lg,
     fontWeight: '700',
     marginBottom: spacing.xs,
+  },
+  message: {
+    fontSize: fontSize.md,
+    lineHeight: 22,
+    marginBottom: spacing.sm,
   },
   row: { paddingVertical: spacing.md },
   centerRow: { alignItems: 'center' },

@@ -31,6 +31,13 @@ export interface WorkoutSetData {
   readonly avgBpm: number | null;
   /** HR-tracked cardio: kcal burned in this segment. */
   readonly caloriesKcal: number | null;
+  /** HR-tracked cardio: seconds in each HR zone, persisted at finish. */
+  readonly zone0Sec: number | null;
+  readonly zone1Sec: number | null;
+  readonly zone2Sec: number | null;
+  readonly zone3Sec: number | null;
+  readonly zone4Sec: number | null;
+  readonly zone5Sec: number | null;
   readonly rpe: number | null;
   readonly completed: boolean;
   readonly completedAt: number | null;
@@ -57,6 +64,8 @@ export interface WorkoutData {
   readonly routineId: string | null;
   readonly name: string;
   readonly status: 'in_progress' | 'completed';
+  /** 'workout' (strength session) | 'activity' (cardio session). */
+  readonly kind: 'workout' | 'activity';
   readonly startedAt: number;
   readonly endedAt: number | null;
   readonly durationSec: number | null;
@@ -141,6 +150,12 @@ export async function loadWorkout(workoutId: string): Promise<WorkoutData | null
       distanceM: s.distanceM,
       avgBpm: s.avgBpm,
       caloriesKcal: s.caloriesKcal,
+      zone0Sec: s.zone0Sec,
+      zone1Sec: s.zone1Sec,
+      zone2Sec: s.zone2Sec,
+      zone3Sec: s.zone3Sec,
+      zone4Sec: s.zone4Sec,
+      zone5Sec: s.zone5Sec,
       rpe: s.rpe,
       completed: s.completed,
       completedAt: s.completedAt,
@@ -154,6 +169,7 @@ export async function loadWorkout(workoutId: string): Promise<WorkoutData | null
     routineId: w.routineId,
     name: w.name,
     status: w.status as 'in_progress' | 'completed',
+    kind: w.kind as 'workout' | 'activity',
     startedAt: w.startedAt,
     endedAt: w.endedAt,
     durationSec: w.durationSec,
@@ -278,6 +294,56 @@ export async function startEmptyWorkout(bodyweightKg: number | null): Promise<st
     createdAt: now,
     updatedAt: now,
   });
+  await recordChange('workouts', id, 'insert');
+  return id;
+}
+
+/**
+ * Start a single-exercise cardio session (an "activity", e.g. Elliptical or a
+ * generic cardiotherapy). The workout is flagged `kind = 'activity'`, carries
+ * the activity's display name, and contains exactly one `hr_cardio` exercise
+ * with one empty segment row so the cardio card opens ready to record.
+ */
+export async function startActivityWorkout(
+  exerciseId: string,
+  name: string,
+): Promise<string> {
+  const id = newId();
+  const now = Date.now();
+  await db.insert(workouts).values({
+    id,
+    routineId: null,
+    name,
+    status: 'in_progress',
+    kind: 'activity',
+    startedAt: now,
+    bodyweightKg: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const weId = newId();
+  await db.insert(workoutExercises).values({
+    id: weId,
+    workoutId: id,
+    exerciseId,
+    sortOrder: 0,
+    restSec: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await db.insert(workoutSets).values({
+    id: newId(),
+    workoutExerciseId: weId,
+    sortOrder: 0,
+    setType: 'normal',
+    durationSec: null,
+    completed: false,
+    createdAt: now,
+    updatedAt: now,
+  });
+
   await recordChange('workouts', id, 'insert');
   return id;
 }
@@ -423,6 +489,12 @@ export async function updateSet(
       | 'distanceM'
       | 'avgBpm'
       | 'caloriesKcal'
+      | 'zone0Sec'
+      | 'zone1Sec'
+      | 'zone2Sec'
+      | 'zone3Sec'
+      | 'zone4Sec'
+      | 'zone5Sec'
       | 'rpe'
       | 'completed'
       | 'completedAt'
@@ -440,6 +512,12 @@ export async function updateSet(
       ... (patch.distanceM !== undefined ? { distanceM: patch.distanceM } : {}),
       ...(patch.avgBpm !== undefined ? { avgBpm: patch.avgBpm } : {}),
       ...(patch.caloriesKcal !== undefined ? { caloriesKcal: patch.caloriesKcal } : {}),
+      ...(patch.zone0Sec !== undefined ? { zone0Sec: patch.zone0Sec } : {}),
+      ...(patch.zone1Sec !== undefined ? { zone1Sec: patch.zone1Sec } : {}),
+      ...(patch.zone2Sec !== undefined ? { zone2Sec: patch.zone2Sec } : {}),
+      ...(patch.zone3Sec !== undefined ? { zone3Sec: patch.zone3Sec } : {}),
+      ...(patch.zone4Sec !== undefined ? { zone4Sec: patch.zone4Sec } : {}),
+      ...(patch.zone5Sec !== undefined ? { zone5Sec: patch.zone5Sec } : {}),
       ...(patch.rpe !== undefined ? { rpe: patch.rpe } : {}),
       ...(patch.completed !== undefined ? { completed: patch.completed } : {}),
       ...(patch.completedAt !== undefined ? { completedAt: patch.completedAt } : {}),
@@ -720,6 +798,12 @@ export async function getPreviousSets(
       distanceM: r.s.distanceM,
       avgBpm: r.s.avgBpm,
       caloriesKcal: r.s.caloriesKcal,
+      zone0Sec: r.s.zone0Sec,
+      zone1Sec: r.s.zone1Sec,
+      zone2Sec: r.s.zone2Sec,
+      zone3Sec: r.s.zone3Sec,
+      zone4Sec: r.s.zone4Sec,
+      zone5Sec: r.s.zone5Sec,
       rpe: r.s.rpe,
       completed: r.s.completed,
       completedAt: r.s.completedAt,

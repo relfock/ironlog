@@ -28,6 +28,18 @@ export const EXTRA_EXERCISES: readonly DbExercise[] = [
     instructions: [],
     mistakes: [],
   },
+  {
+    slug: 'other-cardio',
+    name: 'Other Cardio',
+    url: '',
+    trackingType: 'hr_cardio',
+    equipment: 'other',
+    primary: ['cardio'],
+    secondary: [],
+    regions: {},
+    instructions: [],
+    mistakes: [],
+  },
 ];
 
 /** The slots to seed without an `artKey`, and never to archive. */

@@ -59,6 +59,14 @@ export class TimerStore {
 
   start(): void {
     if (this.intervalId !== null) return;
+    // Eagerly configure the audio session (background playback) and warm up
+    // the "rest done" player. This matters most for rest timers that expire
+    // while the app is backgrounded: without `shouldPlayInBackground`, expo-audio
+    // pauses every playable on entering the background and only resumes it on
+    // return to the foreground — exactly the "the chime is silent until I
+    // reopen the app" symptom. It also removes the race where the module was
+    // configured for the first time at the same instant a timer expired.
+    void this.ensureDing();
     this.intervalId = setInterval(() => {
       // No observer needs the current time: skip the state change entirely so
       // nothing re-renders.
@@ -187,7 +195,14 @@ export class TimerStore {
     if (this.dingReady !== null) return this.dingReady;
     this.dingReady = (async () => {
       try {
-        await setAudioModeAsync({ playsInSilentMode: true });
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+          // Keep the player active while the app is backgrounded, so a rest
+          // that expires with the phone tucked away still chimes. (Without
+          // this, expo-audio pauses every playable on background exit and
+          // only resumes it once the app is foregrounded again.)
+          shouldPlayInBackground: true,
+        });
         this.ding = createAudioPlayer(restDing);
         this.ding.volume = 1;
       } catch {

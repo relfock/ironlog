@@ -12,7 +12,16 @@
  */
 import * as Notifications from 'expo-notifications';
 
-export const REST_TIMER_CHANNEL_ID = 'rest-timer-sound-v2';
+/**
+ * Channel id. The suffix is intentionally bumped whenever the sound policy
+ * changes: Android caches a channel's sound/vibration the first time it is
+ * created and refuses to change it later, so a fresh id is the only way to
+ * replace a channel that was pinned to a silent/older default. (v3 was first
+ * created before the `res/raw` chime reliably resolved in release builds and
+ * can still be cached as silent on some devices; v4 forces a fresh channel
+ * that resolves it.)
+ */
+export const REST_TIMER_CHANNEL_ID = 'rest-timer-sound-v4';
 const REST_TIMER_NOTIFICATION_ID = 'ironlog-rest-done';
 const REST_TIMER_TITLE = "Time's up";
 const REST_TIMER_BODY = 'Your next set is ready.';
@@ -31,7 +40,8 @@ let channelReady: Promise<void> | null = null;
  * muted on many phones and cannot be relied on. The channel id is suffixed
  * because Android caches a channel's sound the first time it is created and
  * refuses to change it later — bump the suffix whenever the sound policy
- * changes.
+ * changes. (v2 was first created before the `res/raw` chime existed, so it is
+ * pinned to the silent default; v3 forces a fresh channel that resolves it.)
  */
 function ensureChannel(): Promise<void> {
   if (channelReady !== null) return channelReady;

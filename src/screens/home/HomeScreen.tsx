@@ -29,7 +29,6 @@ import { buildBodyHeatScale } from '@/theme/heatScale';
 import { buildRecoveryScale } from '@/theme/recoveryScale';
 import { fontSize, radius, spacing } from '@/theme/tokens';
 import {
-  calculateRecoveryProgress,
   MUSCLE_RECOVERY_HOURS,
   recoveryLevel,
   timeUntilRecovered,
@@ -50,7 +49,7 @@ function RecoveryProgressList({
   fatigueByMuscle: Map<Muscle, number>;
   birthYear: number | null;
   sex: Sex | null;
-  palette: any;
+  palette: ReturnType<typeof usePalette>;
   recoveryScale: string[];
 }) {
   const recovering = useMemo(() => {
@@ -86,7 +85,7 @@ function RecoveryProgressList({
       {recovering.map(({ label, timeMs, level }) => {
         const barWidth = Math.min(1, timeMs / MAX_TIME_MS);
         return (
-          <View key={label} style={{ gap: spacing.xxs }}>
+          <View key={label} style={{ gap: spacing.xs }}>
             <View
               style={{
                 flexDirection: 'row',
@@ -133,7 +132,7 @@ function VolumeProgressList({
   heatScale,
 }: {
   setsPerMuscle: Map<Muscle, number>;
-  palette: any;
+  palette: ReturnType<typeof usePalette>;
   heatScale: string[];
 }) {
   const volume = useMemo(() => {
@@ -161,7 +160,7 @@ function VolumeProgressList({
       {volume.map(({ label, sets, level }) => {
         const barWidth = Math.min(1, sets / MAX_SETS);
         return (
-          <View key={label} style={{ gap: spacing.xxs }}>
+          <View key={label} style={{ gap: spacing.xs }}>
             <View
               style={{
                 flexDirection: 'row',
@@ -453,10 +452,7 @@ export const HomeScreen = observer(function HomeScreen() {
           colors={heatScale}
           onClose={() => setViewerOpen(false)}
           onOpenExercises={(muscles) =>
-            navigation.navigate('Tabs', {
-              screen: 'Exercises',
-              params: { muscles: [...muscles] },
-            })
+            navigation.navigate('ExerciseLibrary', { muscles: [...muscles] })
           }
         />
       ) : null}

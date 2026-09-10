@@ -15,9 +15,9 @@ import { usePalette } from '@/theme/ThemeProvider';
 import { fontSize, radius, spacing } from '@/theme/tokens';
 
 /**
- * Bottom sheet for pairing a BLE heart-rate monitor (Whoop Broadcast HR mode,
- * Polar, Wahoo, ...). Lives inside ActiveWorkoutScreen; scan results and
- * connection state come from HeartRateStore.
+ * Bottom sheet for pairing a BLE heart-rate monitor (Polar, Wahoo, …). Lives
+ * inside ActiveWorkoutScreen; scan results and connection state come from
+ * HeartRateStore.
  */
 export const HeartRateSheet = observer(
   function HeartRateSheet({
@@ -51,9 +51,9 @@ export const HeartRateSheet = observer(
             <View style={[styles.grabber, { backgroundColor: palette.border }]} />
             <Text style={[styles.title, { color: palette.text }]}>Heart rate</Text>
             <Caption style={{ marginBottom: spacing.md }}>
-              Pair a monitor broadcasting the standard heart-rate service. Enable Whoop’s
-              “Broadcast HR” in the Whoop app first — the strap only advertises while
-              broadcasting.
+              Pair a monitor broadcasting the standard heart-rate service.
+              Enable broadcasting on the strap first — many devices only
+              advertise while broadcasting.
             </Caption>
 
             <ScrollView
@@ -61,10 +61,12 @@ export const HeartRateSheet = observer(
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.scrollContent}
             >
-              {hr.status === 'connected' || hr.status === 'connecting' ? (
+              {hr.status === 'connected' ||
+              hr.status === 'connecting' ||
+              hr.status === 'reconnecting' ? (
                 <View style={styles.statusBox}>
                   <View style={styles.liveRow}>
-                    {hr.status === 'connecting' ? (
+                    {hr.status === 'connecting' || hr.status === 'reconnecting' ? (
                       <ActivityIndicator color={palette.accent} />
                     ) : (
                       <Text
@@ -80,18 +82,55 @@ export const HeartRateSheet = observer(
                       <Body>{hr.deviceName ?? 'Connecting…'}</Body>
                       <Caption>
                         {hr.status === 'connected'
-                          ? 'Recording every ~5 seconds into this workout.'
-                          : 'Hang on, establishing a connection.'}
+                          ? hr.emulating
+                            ? 'Simulator running — readings feed this workout normally.'
+                            : 'Recording every ~5 seconds into this workout.'
+                          : hr.status === 'reconnecting'
+                            ? `Connection lost — reconnecting to ${hr.deviceName ?? 'your monitor'}…`
+                            : 'Hang on, establishing a connection.'}
                       </Caption>
                     </View>
                   </View>
                   {hr.connected ? (
-                    <Button
-                      label="Disconnect"
-                      variant="secondary"
-                      onPress={() => void hr.disconnect()}
-                      style={{ marginTop: spacing.md }}
-                    />
+                    <>
+                      <Button
+                        label={hr.emulating ? 'Disconnect simulator' : 'Disconnect'}
+                        variant="secondary"
+                        onPress={() => void hr.disconnect()}
+                        style={{ marginTop: spacing.md }}
+                      />
+                      {hr.emulating ? (
+                        <Button
+                          label="Pair a real monitor instead"
+                          variant="ghost"
+                          onPress={() => hr.switchToScan()}
+                          style={{ marginTop: spacing.md }}
+                        />
+                      ) : (
+                        <Button
+                          label="Simulate a strap instead (testing)"
+                          variant="ghost"
+                          onPress={() => hr.switchToEmulator()}
+                          style={{ marginTop: spacing.md }}
+                        />
+                      )}
+                    </>
+                  ) : null}
+                  {hr.status === 'reconnecting' ? (
+                    <>
+                      <Button
+                        label="Stop trying"
+                        variant="ghost"
+                        onPress={() => hr.cancelReconnect()}
+                        style={{ marginTop: spacing.md }}
+                      />
+                      <Button
+                        label="Simulate a strap instead (testing)"
+                        variant="ghost"
+                        onPress={() => hr.startEmulator()}
+                        style={{ marginTop: spacing.md }}
+                      />
+                    </>
                   ) : null}
                 </View>
               ) : null}
@@ -113,11 +152,19 @@ export const HeartRateSheet = observer(
                   <Caption>Scanning for heart-rate devices…</Caption>
                 </View>
               ) : hr.status === 'idle' || hr.status === 'error' ? (
-                <Button
-                  label="Scan for devices"
-                  onPress={() => void hr.startScan()}
-                  style={{ marginBottom: spacing.md }}
-                />
+                <>
+                  <Button
+                    label="Scan for devices"
+                    onPress={() => void hr.startScan()}
+                    style={{ marginBottom: spacing.md }}
+                  />
+                  <Button
+                    label="Simulate a strap (testing)"
+                    variant="ghost"
+                    onPress={() => hr.startEmulator()}
+                    style={{ marginBottom: spacing.md }}
+                  />
+                </>
               ) : null}
 
               {hr.devices.map((d) => (
@@ -146,8 +193,8 @@ export const HeartRateSheet = observer(
 
               {hr.status === 'scanning' && hr.devices.length === 0 ? (
                 <Caption style={{ marginTop: spacing.md }}>
-                  Nothing yet. Make sure broadcasting is on in the Whoop app and the strap is
-                  near the phone.
+                  Nothing yet. Make sure the strap is broadcasting and is near
+                  the phone.
                 </Caption>
               ) : null}
             </ScrollView>

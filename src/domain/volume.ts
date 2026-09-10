@@ -100,11 +100,6 @@ export function accumulateMuscleSets(
     out.set(m, stripFloatNoise((out.get(m) ?? 0) + n));
   };
 
-  const DELTOID_GROUP: readonly Muscle[] = ['front_delts', 'side_delts', 'rear_delts']; // Wait, typo in my thought. it's front_delts.
-  // Let's be careful with the names.
-  // From domain/types.ts: 'front_delts' | 'side_delts' | 'rear_delts'
-
-  // Correction: Use a proper set for the group.
   const DELTS = new Set(['front_delts', 'side_delts', 'rear_delts'] as Muscle[]);
 
   for (const e of entries) {

@@ -83,7 +83,10 @@ export function filterExercises(
   all: readonly Exercise[],
   filter: ExerciseFilter,
 ): Exercise[] {
-  let out = [...all];
+  // HR-tracked cardio (elliptical, generic "Other") is not a strength exercise:
+  // it lives in the dedicated Activities view, never in the exercise library or
+  // the add-exercise picker.
+  let out = all.filter((e) => e.trackingType !== 'hr_cardio');
 
   if (filter.muscles && filter.muscles.length > 0) {
     const wanted = new Set(filter.muscles);

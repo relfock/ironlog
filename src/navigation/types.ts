@@ -3,10 +3,7 @@ import type { Muscle } from '@/domain/types';
 
 export type TabParamList = {
   Home: undefined;
-  Routines: undefined;
-  StartWorkout: undefined;
-  /** Set `muscles` to pre-filter the library (e.g. GLG 2.5D explorer double-tap). */
-  Exercises: { muscles?: Muscle[] } | undefined;
+  Start: undefined;
   Profile: undefined;
 };
 
@@ -34,9 +31,16 @@ export type RootStackParamList = {
   Measurements: undefined;
   Settings: undefined;
   WorkoutSettings: undefined;
+  HeartRateZones: undefined;
   PlateSettings: undefined;
   Credits: undefined;
   DataExport: undefined;
+  /** The Routines list, reachable from the Start hub ("Strength Trainer"). */
+  StrengthTrainer: undefined;
+  /** Non-exercise activities (elliptical, generic cardio) reachable from Start. */
+  Activities: undefined;
+  /** The exercise library, reachable from the Profile "App" section. */
+  ExerciseLibrary: { muscles?: Muscle[] } | undefined;
 };
 
 declare global {

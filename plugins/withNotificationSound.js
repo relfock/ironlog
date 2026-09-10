@@ -1,6 +1,9 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { withAppBuildGradle } = require('@expo/config-plugins');
+const {
+  withAndroidManifest,
+  withAppBuildGradle,
+} = require('@expo/config-plugins');
 
 /**
  * Makes the "rest done" chime available to a notification channel in BOTH
@@ -37,8 +40,23 @@ const SOUND_SOURCE = 'rest-ding.wav';
 /** Guard so the `noCompress 'wav'` aaptOptions block is not appended twice. */
 const MARKER = '// withNotificationSound: rest-done chime as a raw resource';
 
+/**
+ * Alarm permission needed for the "rest done" alert to fire on time. Without
+ * it expo-notifications falls back to an inexact AlarmManager alarm, which
+ * Doze/battery-optimisation can defer until the app is reopened — so the
+ * background chime would only ever be heard on return to the app.
+ *
+ * `USE_EXACT_ALARM` (API 33+) is pre-granted at install time for timer apps and
+ * makes `canScheduleExactAlarms()` true; `SCHEDULE_EXACT_ALARM` covers API
+ * 31–32 (and API 33+ where it happens to be pre-granted).
+ */
+const EXACT_ALARM_PERMISSIONS = [
+  { $: { 'android:name': 'android.permission.SCHEDULE_EXACT_ALARM' } },
+  { $: { 'android:name': 'android.permission.USE_EXACT_ALARM' } },
+];
+
 module.exports = function withNotificationSound(config) {
-  return withAppBuildGradle(config, (cfg) => {
+  config = withAppBuildGradle(config, (cfg) => {
     if (cfg.modResults.language !== 'groovy') {
       throw new Error(
         `withNotificationSound expects a Groovy app/build.gradle, got ${cfg.modResults.language}.`,
@@ -69,4 +87,20 @@ android {
 `;
     return cfg;
   });
+
+  // Merge the exact-alarm permissions so a scheduled "rest done" alert fires on
+  // time even while the app is suspended (see EXACT_ALARM_PERMISSIONS above).
+  config = withAndroidManifest(config, (cfg) => {
+    const permissions = cfg.modResults.manifest['uses-permission'] ?? [];
+    const seen = new Set(permissions.map((p) => p.$['android:name']));
+    for (const perm of EXACT_ALARM_PERMISSIONS) {
+      if (!seen.has(perm.$['android:name'])) {
+        permissions.push(perm);
+      }
+    }
+    cfg.modResults.manifest['uses-permission'] = permissions;
+    return cfg;
+  });
+
+  return config;
 };

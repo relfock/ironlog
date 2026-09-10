@@ -1,0 +1,1 @@
+ALTER TABLE `workouts` ADD `kind` text DEFAULT 'workout' NOT NULL;

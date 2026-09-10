@@ -75,6 +75,11 @@ export const ProfileScreen = observer(function ProfileScreen() {
 
         <SettingsSection title="App">
           <SettingsRow
+            label="Exercise library"
+            description="Browse and manage the exercise catalogue"
+            onPress={() => navigation.navigate('ExerciseLibrary')}
+          />
+          <SettingsRow
             label="Workout settings"
             description="Timers, RPE, plate calculator and more"
             onPress={() => navigation.navigate('WorkoutSettings')}
