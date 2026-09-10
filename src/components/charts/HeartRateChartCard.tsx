@@ -7,6 +7,7 @@ import {
   useChartPressState,
 } from 'victory-native';
 import {
+  Circle,
   DashPathEffect,
   Group,
   Line as SkiaLine,
@@ -65,16 +66,22 @@ export function HeartRateChartCard({
   const font = useChartFont();
   const settings = useSettings();
   const resolvedZones = zones ?? settings.zoneSet;
+  const chartData = React.useMemo(
+    () => samples.map((d) => ({ x: d.recordedAt, y: d.bpm })),
+    [samples],
+  );
   const { state } = useChartPressState({ x: 0, y: { y: 0 } });
 
   const [callout, setCallout] = useState<{
     y: number;
     x: number;
     xPos: number;
+    yPos: number;
   } | null>(null);
 
-  const syncCallout = (y: number, x: number, xPos: number) =>
-    setCallout({ y, x, xPos });
+  const syncCallout = (y: number, x: number, xPos: number, yPos: number) =>
+    setCallout({ y, x, xPos, yPos });
+  const clearCallout = () => setCallout(null);
 
   useAnimatedReaction(
     () => ({
@@ -82,10 +89,13 @@ export function HeartRateChartCard({
       x: state.x.value.get(),
       y: state.y.y.value.get(),
       xPos: state.x.position.get(),
+      yPos: state.y.y.position.get(),
     }),
     (cur) => {
       if (cur.active) {
-        runOnJS(syncCallout)(cur.y, cur.x, cur.xPos);
+        runOnJS(syncCallout)(cur.y, cur.x, cur.xPos, cur.yPos);
+      } else {
+        runOnJS(clearCallout)();
       }
     },
   );
@@ -109,6 +119,35 @@ export function HeartRateChartCard({
   // heart-rate line in either theme.
   const trace = palette.danger;
 
+  // Chart container width, needed to keep the finger-following value bubble on
+  // the screen. Measured from the chart wrapper (the canvas fills it exactly).
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const BUBBLE_W = 100;
+  const BUBBLE_H = 56;
+  const BUBBLE_GAP = 8;
+  const bubbleLeft =
+    callout !== null && containerWidth > 0
+      ? Math.max(
+          BUBBLE_W / 2,
+          Math.min(containerWidth - BUBBLE_W / 2, callout.xPos),
+        ) -
+        BUBBLE_W / 2
+      : 0;
+  const showBelow = callout !== null && callout.yPos < BUBBLE_H + BUBBLE_GAP + 16;
+  const bubbleTop =
+    callout !== null
+      ? Math.max(
+          4,
+          Math.min(
+            chartHeight - BUBBLE_H - 4,
+            showBelow
+              ? callout.yPos + 12
+              : callout.yPos - BUBBLE_H - BUBBLE_GAP,
+          ),
+        )
+      : 0;
+
   return (
     <View>
       <View
@@ -131,14 +170,17 @@ export function HeartRateChartCard({
           <Caption>Not enough readings to draw a curve yet.</Caption>
         </View>
       ) : (
-        <View style={{ height: chartHeight, marginTop: spacing.sm }}>
+        <View
+          style={{ height: chartHeight, marginTop: spacing.sm }}
+          onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+        >
           {callout !== null ? (
             <View
               style={{
                 position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
+                top: bubbleTop,
+                left: bubbleLeft,
+                width: BUBBLE_W,
                 alignItems: 'center',
                 zIndex: 10,
                 pointerEvents: 'none',
@@ -178,7 +220,7 @@ export function HeartRateChartCard({
           ) : null}
           <CartesianChart
             key={resolvedZones.map((z) => `${z.min}-${z.max}`).join('|')}
-            data={samples.map((d) => ({ x: d.recordedAt, y: d.bpm }))}
+            data={chartData}
             xKey="x"
             yKeys={['y']}
             domain={{ y: [yFloor, yCeil] }}
@@ -319,14 +361,30 @@ export function HeartRateChartCard({
                     />
                   ))}
                   {callout !== null && (
-                    <SkiaLine
-                      p1={{ x: callout.xPos, y: yFor(yCeil) }}
-                      p2={{ x: callout.xPos, y: yFor(yFloor) }}
-                      color={palette.textFaint}
-                      strokeWidth={1}
-                    >
-                      <DashPathEffect intervals={[4, 4]} />
-                    </SkiaLine>
+                    <>
+                      <SkiaLine
+                        p1={{ x: callout.xPos, y: yFor(yCeil) }}
+                        p2={{ x: callout.xPos, y: yFor(yFloor) }}
+                        color={palette.textFaint}
+                        strokeWidth={1}
+                      >
+                        <DashPathEffect intervals={[4, 4]} />
+                      </SkiaLine>
+                      <Circle
+                        cx={callout.xPos}
+                        cy={callout.yPos}
+                        r={6}
+                        color={palette.surface}
+                        style="fill"
+                      />
+                      <Circle
+                        cx={callout.xPos}
+                        cy={callout.yPos}
+                        r={3.5}
+                        color={trace}
+                        style="fill"
+                      />
+                    </>
                   )}
                 </>
               );
