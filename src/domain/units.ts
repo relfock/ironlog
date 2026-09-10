@@ -96,6 +96,22 @@ export function formatDurationCompact(totalSeconds: number): string {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
+/**
+ * Compact form that keeps the running seconds: "3m 50s", "45s", "1h 5m 30s".
+ * Used by the live zone bands so the seconds keep ticking past the minute mark.
+ */
+export function formatDurationCompactWithSeconds(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  if (s < 60) return `${s}s`;
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const secPart = sec > 0 ? ` ${sec}s` : '';
+  if (h === 0) return `${m}m${secPart}`;
+  const minPart = m > 0 ? ` ${m}m` : '';
+  return `${h}h${minPart}${secPart}`;
+}
+
 /** Format milliseconds into human-readable recovery time: "2 days 4 hours". */
 export function formatRecoveryTime(ms: number): string {
   const totalSec = Math.floor(ms / 1000);

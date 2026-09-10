@@ -39,7 +39,7 @@ import {
   zoneIndexForHr,
   type HrZoneSet,
 } from '@/domain/heartRateZones';
-import { formatDuration, formatDurationCompact } from '@/domain/units';
+import { formatDuration, formatDurationCompactWithSeconds } from '@/domain/units';
 import type { WorkoutExerciseData, WorkoutSetData } from '@/db/repositories/workouts';
 import { useActiveWorkout, useHeartRate, useSettings } from '@/stores/RootStore';
 import { usePalette, useTheme } from '@/theme/ThemeProvider';
@@ -316,10 +316,10 @@ function LivePanel({
     samples.length > 0 ? samples : [{ recordedAt: Date.now(), bpm: bpm ?? 0 }];
   const maxSample = hrBpms.length > 0 ? Math.max(...hrBpms) : (bpm ?? 0);
   const minSample = hrBpms.length > 0 ? Math.min(...hrBpms) : (bpm ?? 0);
-  // Data-driven floor: hug the lowest HR recorded (with ~10% of slack) instead
-  // of parking the axis at a fixed 40 bpm. 40 stays as a hard show-even-when-idle
-  // floor so the live panel is always comfortable to read.
-  const yFloor = Math.max(40, Math.floor((minSample * 0.9) / 10) * 10);
+  // Data-driven floor: sit exactly on the lowest HR recorded so far, ratcheting
+  // down automatically as lower values come in. Until the first sample lands,
+  // keep the 40 bpm show-even-when-idle floor so the empty panel stays readable.
+  const yFloor = samples.length > 0 ? minSample : 40;
   // Data-driven ceiling: like the x-domain, it grows on demand to fit the
   // highest HR reached this session (samples only ever accumulate during an
   // activity), instead of being pinned to the athlete's max-HR estimate.
@@ -605,7 +605,7 @@ function ZoneSessionSplit({
                     fontVariant: ['tabular-nums'],
                   }}
                 >
-                  {formatDurationCompact(t)}
+                  {formatDurationCompactWithSeconds(t)}
                 </Text>
               </View>
             </View>

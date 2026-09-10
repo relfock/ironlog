@@ -110,10 +110,11 @@ export function HeartRateChartCard({
   const measuredMax = Math.max(...bpm);
   const measuredMin = Math.min(...bpm);
   const hrCeiling = maxHr ?? measuredMax;
-  // Data-driven floor: edge the axis down to ~10% below the lowest HR on the
-  // curve (rounded to 10 s) instead of pinning it at 0, so a session that
-  // stayed above 60 bpm never wastes the bottom of the plot.
-  const yFloor = Math.max(0, Math.floor((measuredMin * 0.9) / 10) * 10);
+  // Data-driven floor: sit exactly on the lowest HR on the curve instead of
+  // edging below it, matching the live panel so a session that stayed above
+  // 60 bpm never wastes the bottom of the plot and the curve reads against
+  // its true minimum.
+  const yFloor = measuredMin;
   const yCeil = Math.max(60, Math.ceil((measuredMax + 5) / 5) * 5);
   // A single red companion to the theme accent, so the trace reads as a
   // heart-rate line in either theme.

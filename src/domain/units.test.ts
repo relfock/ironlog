@@ -3,6 +3,7 @@ import {
   formatAxisTick,
   formatDuration,
   formatDurationCompact,
+  formatDurationCompactWithSeconds,
   formatWeight,
   fromKg,
   kgToLb,
@@ -128,6 +129,15 @@ describe('formatting', () => {
     expect(formatDurationCompact(2700)).toBe('45m');
     expect(formatDurationCompact(3600)).toBe('1h');
     expect(formatDurationCompact(3900)).toBe('1h 5m');
+  });
+
+  it('keeps seconds in compact durations', () => {
+    expect(formatDurationCompactWithSeconds(45)).toBe('45s');
+    expect(formatDurationCompactWithSeconds(230)).toBe('3m 50s');
+    expect(formatDurationCompactWithSeconds(180)).toBe('3m');
+    expect(formatDurationCompactWithSeconds(3930)).toBe('1h 5m 30s');
+    expect(formatDurationCompactWithSeconds(3630)).toBe('1h 30s');
+    expect(formatDurationCompactWithSeconds(3600)).toBe('1h');
   });
 });
 
