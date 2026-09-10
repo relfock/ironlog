@@ -11,6 +11,7 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import restDing from '../../assets/rest-ding.wav';
+import { onWorkoutTick } from '@/lib/keepAlive';
 import {
   adjust,
   isExpired,
@@ -18,15 +19,10 @@ import {
   progress,
   remainingSec,
   resume,
-  scheduledFireAtMs,
   startRestTimer,
   type RestTimerState,
 } from '@/domain/restTimer';
-import {
-  cancelRestDoneNotif,
-  configureRestNotifications,
-  scheduleRestDoneNotif,
-} from '@/lib/restNotifications';
+import { cancelRestDoneNotif, configureRestNotifications } from '@/lib/restNotifications';
 
 export class TimerStore {
   /** Ticks each second to drive re-renders. Not a source of truth. */
@@ -46,6 +42,7 @@ export class TimerStore {
   private firedFor: RestTimerState | null = null;
 
   private intervalId: ReturnType<typeof setInterval> | null = null;
+  private tickUnsub: (() => void) | null = null;
   onExpire: (() => void) | null = null;
 
   /** Lazily-created "rest done" chime; kept so it can be replayed. */
@@ -55,6 +52,11 @@ export class TimerStore {
   constructor() {
     makeAutoObservable(this, {}, { autoBind: true });
     configureRestNotifications();
+    // The keep-alive foreground service keeps the JS thread pumping while the
+    // app is minimized, so aside from our own interval we also check expiry on
+    // its 1 Hz tick. This guarantees the single in-app chime still fires on
+    // time in the background, where a plain `setInterval` can freeze.
+    this.tickUnsub = onWorkoutTick(() => this.checkExpiry());
   }
 
   start(): void {
@@ -79,6 +81,8 @@ export class TimerStore {
   }
 
   stop(): void {
+    this.tickUnsub?.();
+    this.tickUnsub = null;
     if (this.intervalId !== null) {
       clearInterval(this.intervalId);
       this.intervalId = null;
@@ -109,7 +113,10 @@ export class TimerStore {
       this.rest = startRestTimer(durationSec, Date.now());
       this.firedFor = null;
     });
-    this.scheduleBackgroundAlert();
+    // No OS notification is scheduled: the in-app chime is the single alert and
+    // stays reliable in the background via the keep-alive tick. Cancel any
+    // leftover schedule from an older build so it can't double-chime.
+    void cancelRestDoneNotif();
   }
 
   clearRest(): void {
@@ -127,7 +134,7 @@ export class TimerStore {
       // Extending a finished timer should be able to alert again.
       this.firedFor = null;
     });
-    this.scheduleBackgroundAlert();
+    void cancelRestDoneNotif();
   }
 
   togglePause(): void {
@@ -139,24 +146,9 @@ export class TimerStore {
           ? pause(this.rest!, now)
           : resume(this.rest!, now);
     });
-    if (this.rest.pausedAtMs !== null) {
-      void cancelRestDoneNotif();
-    } else {
-      this.scheduleBackgroundAlert();
-    }
-  }
-
-  /**
-   * Hand the alert to the OS so it fires even with the app backgrounded.
-   * Guarded by `scheduledFireAtMs`, which returns null while paused or
-   * already expired, so we never schedule an alert that can't still happen.
-   */
-  private scheduleBackgroundAlert(): void {
-    const rest = this.rest;
-    if (rest === null) return;
-    const fireAtMs = scheduledFireAtMs(rest, Date.now());
-    if (fireAtMs === null) return;
-    void scheduleRestDoneNotif(fireAtMs);
+    // Same alert in both cases: no OS notification is scheduled, so nothing
+    // differs on pause/resume beyond the timer state itself.
+    void cancelRestDoneNotif();
   }
 
   get restRemainingSec(): number | null {
@@ -184,6 +176,7 @@ export class TimerStore {
     runInAction(() => {
       this.firedFor = rest;
     });
+    void cancelRestDoneNotif();
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
       () => {},
     );
