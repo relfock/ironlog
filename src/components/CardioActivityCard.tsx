@@ -353,6 +353,8 @@ function LivePanel({
               { color: palette.text },
               fullscreen && styles.timerFull,
             ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
           >
             {formatDuration(elapsedSec)}
           </Text>
@@ -668,11 +670,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   timer: {
-    fontSize: fontSize.display,
+    fontSize: fontSize.xl,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
   },
-  timerFull: { fontSize: fontSize.display * 1.35 },
+  timerFull: { fontSize: fontSize.xxl },
   bpm: { fontSize: fontSize.display, fontWeight: '800', fontVariant: ['tabular-nums'] },
   bpmFull: { fontSize: fontSize.display * 1.35 },
   zonePill: {
