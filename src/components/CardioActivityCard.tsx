@@ -554,58 +554,64 @@ function ZoneSessionSplit({
   return (
     <View style={{ marginTop: spacing.md }}>
       <Caption>TIME IN EACH ZONE</Caption>
-      <View
-        style={{
-          marginTop: spacing.xs,
-          flexDirection: 'row',
-          overflow: 'hidden',
-          borderRadius: 6,
-        }}
-      >
-        {zones.map((z, i) => {
+      {zones
+        .map((z, i) => {
           const t = totals[i] ?? 0;
           if (t <= 0) return null;
+          const pct = Math.min(100, (t / total) * 100);
           return (
-            <View key={z.label} style={{ flex: t / total, height: 10, backgroundColor: z.color }} />
-          );
-        })}
-      </View>
-      <View
-        style={{
-          marginTop: spacing.xs,
-          flexWrap: 'wrap',
-          flexDirection: 'row',
-          justifyContent: 'center',
-        }}
-      >
-        {zones.map((z, i) => {
-          const t = totals[i] ?? 0;
-          return t > 0 ? (
             <View
               key={z.label}
               style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                marginRight: spacing.md,
+                height: 18,
                 marginTop: spacing.xs,
+                backgroundColor: palette.border,
+                borderRadius: 4,
+                overflow: 'hidden',
               }}
             >
               <View
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 4,
-                  backgroundColor: z.color,
-                  marginRight: 4,
-                }}
+                style={{ height: '100%', width: `${pct}%`, backgroundColor: z.color }}
               />
-              <Text style={{ color: palette.textMuted, fontSize: fontSize.xs }}>
-                {z.label} {formatDurationCompact(t)}
-              </Text>
+              <View
+                style={[
+                  {
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    paddingHorizontal: spacing.sm,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: '#ffffff',
+                    fontSize: fontSize.xs,
+                    fontWeight: '700',
+                  }}
+                >
+                  {z.label} {z.name}
+                </Text>
+                <Text
+                  style={{
+                    color: '#ffffff',
+                    fontSize: fontSize.xs,
+                    fontWeight: '700',
+                    fontVariant: ['tabular-nums'],
+                  }}
+                >
+                  {formatDurationCompact(t)}
+                </Text>
+              </View>
             </View>
-          ) : null;
-        })}
-      </View>
+          );
+        })
+        .reverse()}
     </View>
   );
 }

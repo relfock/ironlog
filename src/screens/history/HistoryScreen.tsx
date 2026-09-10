@@ -5,8 +5,10 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { CalendarHeatmap } from '@/components/CalendarHeatmap';
 import { Body, Caption, Card, EmptyState, H1, H2, Row } from '@/components/ui';
 import { useWorkoutHistory } from '@/hooks/useHistory';
+import { useWorkoutHrStatsMap } from '@/hooks/useWorkoutHrStats';
 import { formatDurationCompact, formatWeight } from '@/domain/units';
 import { dailyStreak, groupByWeek, weeklyStreak } from '@/domain/streak';
+import { DEFAULT_HR_ZONES } from '@/domain/heartRateZones';
 import { useSettings } from '@/stores/RootStore';
 import { usePalette } from '@/theme/ThemeProvider';
 import { spacing } from '@/theme/tokens';
@@ -16,6 +18,7 @@ export const HistoryScreen = observer(function HistoryScreen() {
   const navigation = useNavigation();
   const settings = useSettings();
   const { workouts, loading } = useWorkoutHistory();
+  const hrStatsMap = useWorkoutHrStatsMap();
 
   const dates = useMemo(
     () => workouts.map((w) => w.startedAt).sort((a, b) => a - b),
@@ -97,11 +100,36 @@ export const HistoryScreen = observer(function HistoryScreen() {
               label="TIME"
               value={formatDurationCompact(w.durationSec ?? 0)}
             />
-            <Metric
-              label="VOLUME"
-              value={`${formatWeight(w.totalVolumeKg, weightUnit)} ${weightUnit}`}
-            />
-            <Metric label="SETS" value={String(w.totalSets)} />
+            {w.kind === 'activity' ? (
+              (() => {
+                const stats = hrStatsMap.get(w.id);
+                if (!stats) return null;
+                const dominantIdx = stats.zoneSec.indexOf(
+                  Math.max(...stats.zoneSec),
+                );
+                const dominantSec = stats.zoneSec[dominantIdx] ?? 0;
+                const zone = DEFAULT_HR_ZONES[dominantIdx];
+                return (
+                  <>
+                    <Metric label="AVG BPM" value={String(stats.avgBpm)} />
+                    {dominantSec > 0 && zone ? (
+                      <Metric
+                        label={zone.name.toUpperCase()}
+                        value={`${Math.round(dominantSec / 60)} min`}
+                      />
+                    ) : null}
+                  </>
+                );
+              })()
+            ) : (
+              <>
+                <Metric
+                  label="VOLUME"
+                  value={`${formatWeight(w.totalVolumeKg, weightUnit)} ${weightUnit}`}
+                />
+                <Metric label="SETS" value={String(w.totalSets)} />
+              </>
+            )}
           </Row>
         </Card>
       ))}

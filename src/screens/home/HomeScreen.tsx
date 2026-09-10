@@ -135,6 +135,8 @@ function VolumeProgressList({
   palette: ReturnType<typeof usePalette>;
   heatScale: string[];
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   const volume = useMemo(() => {
     const items = [];
     for (const [muscle, sets] of setsPerMuscle) {
@@ -156,44 +158,63 @@ function VolumeProgressList({
   const MAX_SETS = 25;
 
   return (
-    <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
-      {volume.map(({ label, sets, level }) => {
-        const barWidth = Math.min(1, sets / MAX_SETS);
-        return (
-          <View key={label} style={{ gap: spacing.xs }}>
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontSize: fontSize.sm, fontWeight: '600', color: palette.text }}>
-                {label}
-              </Text>
-              <Text style={{ fontSize: fontSize.xs, color: palette.textFaint }}>
-                {Math.round(sets)} sets
-              </Text>
-            </View>
-            <View
-              style={{
-                height: 6,
-                backgroundColor: palette.border,
-                borderRadius: radius.sm,
-                overflow: 'hidden',
-              }}
-            >
-              <View
-                style={{
-                  height: '100%',
-                  backgroundColor: heatScale[level - 1],
-                  width: `${barWidth * 100}%`,
-                }}
-              />
-            </View>
-          </View>
-        );
-      })}
+    <View style={{ marginTop: spacing.lg }}>
+      <Pressable
+        onPress={() => setExpanded((v) => !v)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Text style={{ fontSize: fontSize.sm, fontWeight: '700', color: palette.text }}>
+          Worked muscles ({volume.length})
+        </Text>
+        <Text style={{ color: palette.textFaint, fontSize: fontSize.sm }}>{expanded ? '⌄' : '›'}</Text>
+      </Pressable>
+      {expanded ? (
+        <View style={{ marginTop: spacing.md, gap: spacing.md }}>
+          {volume.map(({ label, sets, level }) => {
+            const barWidth = Math.min(1, sets / MAX_SETS);
+            return (
+              <View key={label} style={{ gap: spacing.xs }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ fontSize: fontSize.sm, fontWeight: '600', color: palette.text }}>
+                    {label}
+                  </Text>
+                  <Text style={{ fontSize: fontSize.xs, color: palette.textFaint }}>
+                    {Math.round(sets)} sets
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    height: 6,
+                    backgroundColor: palette.border,
+                    borderRadius: radius.sm,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <View
+                    style={{
+                      height: '100%',
+                      backgroundColor: heatScale[level - 1],
+                      width: `${barWidth * 100}%`,
+                    }}
+                  />
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
     </View>
   );
 }

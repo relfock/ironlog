@@ -17,7 +17,6 @@ import type { SkPath } from '@shopify/react-native-skia';
 import { Caption, H2 } from '../ui';
 import { useChartFont } from './useChartFont';
 import { densifyMonotone } from './zoneCurve';
-import { summariseHeartRate } from '@/domain/heartRate';
 import {
   type HrZoneSet,
   zoneIndexForHr,
@@ -48,25 +47,24 @@ function formatClock(v: number): string {
  */
 export function HeartRateChartCard({
   title = 'HEART RATE',
+  subtitle,
   samples,
   maxHr,
   zones,
+  chartHeight = 190,
 }: {
   title?: string;
+  subtitle?: string;
   samples: readonly HeartRateSamplePoint[];
   maxHr?: number;
   zones?: HrZoneSet;
+  chartHeight?: number;
 }) {
   const palette = usePalette();
   const { isDark: _isDark } = useTheme();
   const font = useChartFont();
   const settings = useSettings();
   const resolvedZones = zones ?? settings.zoneSet;
-  const summary = summariseHeartRate(
-    samples.map((s) => ({ recordedAt: s.recordedAt, bpm: s.bpm })),
-    maxHr,
-    resolvedZones,
-  );
   const { state } = useChartPressState({ x: 0, y: { y: 0 } });
 
   const [callout, setCallout] = useState<{
@@ -106,31 +104,34 @@ export function HeartRateChartCard({
   // curve (rounded to 10 s) instead of pinning it at 0, so a session that
   // stayed above 60 bpm never wastes the bottom of the plot.
   const yFloor = Math.max(0, Math.floor((measuredMin * 0.9) / 10) * 10);
-  const yCeil = Math.max(60, Math.ceil((measuredMax + 10) / 10) * 10);
+  const yCeil = Math.max(60, Math.ceil((measuredMax + 5) / 5) * 5);
   // A single red companion to the theme accent, so the trace reads as a
   // heart-rate line in either theme.
   const trace = palette.danger;
 
   return (
     <View>
-      <H2>{title}</H2>
-      {summary !== null ? (
-        <View style={{ flexDirection: 'row', marginTop: spacing.sm }}>
-          <Stat label="AVG" value={`${summary.avgBpm}`} />
-          <Stat label="MAX" value={`${summary.maxBpm}`} />
-          <Stat
-            label="ZONE 2+"
-            value={`${Math.round(summary.zone2Sec / 60)} min`}
-          />
-        </View>
-      ) : null}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+        }}
+      >
+        <H2 style={{ flex: 1 }}>{title}</H2>
+        {subtitle !== undefined ? (
+          <Caption style={{ marginLeft: spacing.sm, textAlign: 'right' }}>
+            {subtitle}
+          </Caption>
+        ) : null}
+      </View>
 
       {samples.length < 2 ? (
         <View style={{ height: 80, justifyContent: 'center' }}>
           <Caption>Not enough readings to draw a curve yet.</Caption>
         </View>
       ) : (
-        <View style={{ height: 190, marginTop: spacing.sm }}>
+        <View style={{ height: chartHeight, marginTop: spacing.sm }}>
           {callout !== null ? (
             <View
               style={{
@@ -182,7 +183,7 @@ export function HeartRateChartCard({
             yKeys={['y']}
             domain={{ y: [yFloor, yCeil] }}
             chartPressState={state}
-            domainPadding={{ left: 12, right: 12, top: 20, bottom: 12 }}
+            domainPadding={{ left: 8, right: 8, top: 12, bottom: 20 }}
             axisOptions={{
               font,
               lineColor: palette.border,
@@ -333,25 +334,6 @@ export function HeartRateChartCard({
           </CartesianChart>
         </View>
       )}
-    </View>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  const palette = usePalette();
-  return (
-    <View style={{ marginRight: spacing.xl }}>
-      <Caption>{label}</Caption>
-      <Text
-        style={{
-          color: palette.text,
-          fontSize: fontSize.lg,
-          fontWeight: '800',
-          fontVariant: ['tabular-nums'],
-        }}
-      >
-        {value}
-      </Text>
     </View>
   );
 }

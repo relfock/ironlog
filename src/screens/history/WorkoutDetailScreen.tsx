@@ -29,6 +29,7 @@ import {
   type WorkoutData,
 } from '@/db/repositories/workouts';
 import type { Muscle } from '@/domain/types';
+import { summariseHeartRate } from '@/domain/heartRate';
 import { estimateMaxHr, zoneSplitSeconds } from '@/domain/heartRateZones';
 import { formatDuration, formatDurationCompact, formatWeight, fromKg, toKg } from '@/domain/units';
 import type { RootStackParamList } from '@/navigation/types';
@@ -111,6 +112,31 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
 
   return (
     <>
+      {isActivity ? (
+        <ScrollView contentContainerStyle={{ flexGrow: 1, padding: spacing.lg }}>
+          {hrSamples.length >= 1 ? (
+            <View>
+              <HeartRateChartCard
+                title={workout.name}
+                subtitle={formatActivityTime(workout)}
+                samples={hrSamples}
+                maxHr={estimatedMaxHr}
+                chartHeight={380}
+              />
+              <ZoneBreakdown
+                workout={workout}
+                samples={hrSamples}
+                maxHr={estimatedMaxHr}
+                palette={palette}
+              />
+            </View>
+          ) : (
+            <Body muted style={{ marginTop: spacing.xl }}>
+              No heart rate data recorded.
+            </Body>
+          )}
+        </ScrollView>
+      ) : (
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
         <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <H1 style={{ flex: 1 }}>{workout.name}</H1>
@@ -382,6 +408,7 @@ export const WorkoutDetailScreen = observer(function WorkoutDetailScreen() {
           style={{ marginTop: spacing.sm }}
         />
       </ScrollView>
+      )}
 
       <PromptModal
         visible={renaming === 'name'}
@@ -517,6 +544,24 @@ function formatZoneSeconds(sec: number): string {
   return r === 0 ? `${m}m` : `${m}m ${r}s`;
 }
 
+/** Date plus start and end clock time for an activity session's subtitle. */
+function formatActivityTime(workout: WorkoutData): string {
+  const date = new Date(workout.startedAt).toLocaleDateString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  const clock = (ms: number) =>
+    new Date(ms).toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  const start = clock(workout.startedAt);
+  const endMs = workout.endedAt ?? workout.startedAt + (workout.durationSec ?? 0) * 1000;
+  return `${date} · ${start} – ${endMs > workout.startedAt ? clock(endMs) : '—'}`;
+}
+
 /**
  * Post-workout HR zone minutes, derived from the workout's stored HR trace
  * against the CURRENT zone boundaries and profile max HR — the same model the
@@ -563,37 +608,93 @@ function ZoneBreakdown({
   const total = totals.reduce((a, b) => a + b, 0);
   if (total <= 0) return null;
 
+  const summary = summariseHeartRate(
+    samples.map((s) => ({ recordedAt: s.recordedAt, bpm: s.bpm })),
+    maxHr,
+    zones,
+  );
+
   return (
     <View style={{ marginTop: spacing.md }}>
-      <Caption>ZONE MINUTES</Caption>
-      <View style={{ marginTop: spacing.sm, flexDirection: 'row', overflow: 'hidden', borderRadius: 6 }}>
-        {zones.map((z, i) => {
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <Caption>ZONE MINUTES</Caption>
+        {summary !== null ? (
+          <Text
+            style={{
+              color: palette.textMuted,
+              fontSize: fontSize.xs,
+              fontVariant: ['tabular-nums'],
+              fontWeight: '700',
+            }}
+          >
+            AVG {summary.avgBpm} · MAX {summary.maxBpm}
+          </Text>
+        ) : null}
+      </View>
+      {zones
+        .map((z, i) => {
           const t = totals[i] ?? 0;
           if (t <= 0) return null;
+          const pct = Math.min(100, (t / total) * 100);
           return (
             <View
               key={z.label}
-              style={{ flex: t / total, height: 10, backgroundColor: z.color }}
-            />
-          );
-        })}
-      </View>
-      <View style={{ marginTop: spacing.sm, flexWrap: 'wrap', flexDirection: 'row' }}>
-        {zones.map((z, i) => {
-          const t = totals[i] ?? 0;
-          return t > 0 ? (
-            <View
-              key={z.label}
-              style={{ flexDirection: 'row', alignItems: 'center', marginRight: spacing.md, marginTop: 4 }}
+              style={{
+                height: 18,
+                marginTop: spacing.xs,
+                backgroundColor: palette.border,
+                borderRadius: 4,
+                overflow: 'hidden',
+              }}
             >
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: z.color, marginRight: 4 }} />
-              <Text style={{ color: palette.textMuted, fontSize: fontSize.xs }}>
-                {z.label} {formatZoneSeconds(t)}
-              </Text>
+              <View
+                style={{ height: '100%', width: `${pct}%`, backgroundColor: z.color }}
+              />
+              <View
+                style={[
+                  {
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    paddingHorizontal: spacing.sm,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: '#ffffff',
+                    fontSize: fontSize.xs,
+                    fontWeight: '700',
+                  }}
+                >
+                  {z.label} {z.name}
+                </Text>
+                <Text
+                  style={{
+                    color: '#ffffff',
+                    fontSize: fontSize.xs,
+                    fontWeight: '700',
+                    fontVariant: ['tabular-nums'],
+                  }}
+                >
+                  {formatZoneSeconds(t)}
+                </Text>
+              </View>
             </View>
-          ) : null;
-        })}
-      </View>
+          );
+        })
+        .reverse()}
     </View>
   );
 }
