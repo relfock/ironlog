@@ -1,6 +1,7 @@
 import { observer } from 'mobx-react-lite';
 import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { PromptModal } from '@/components/PromptModal';
 import { Body, Button, Caption, Card, H1, H2, Row } from '@/components/ui';
 import { SettingsRow, SettingsSection } from '@/components/settings';

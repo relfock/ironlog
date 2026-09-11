@@ -1,7 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import React, { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { CalendarHeatmap } from '@/components/CalendarHeatmap';
 import { Body, Button, Caption, Card, EmptyState, H1, H2, Row } from '@/components/ui';
 import { useWorkoutHistory } from '@/hooks/useHistory';

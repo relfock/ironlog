@@ -62,6 +62,7 @@ export interface RoutineSummary {
 export interface FolderData {
   readonly id: string;
   readonly name: string;
+  readonly notes: string | null;
   readonly sortOrder: number;
 }
 
@@ -75,7 +76,12 @@ export async function listFolders(): Promise<FolderData[]> {
     .from(routineFolders)
     .where(eq(routineFolders.deleted, false))
     .orderBy(asc(routineFolders.sortOrder), asc(routineFolders.name));
-  return rows.map((r) => ({ id: r.id, name: r.name, sortOrder: r.sortOrder }));
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    notes: r.notes,
+    sortOrder: r.sortOrder,
+  }));
 }
 
 /**
@@ -233,6 +239,20 @@ export async function renameFolder(id: string, name: string): Promise<void> {
   await db
     .update(routineFolders)
     .set({ name: name.trim(), updatedAt: Date.now(), dirty: true })
+    .where(eq(routineFolders.id, id));
+  await recordChange('routine_folders', id, 'update');
+}
+
+/** Save the shared notes for every routine inside a folder. */
+export async function updateFolderNotes(id: string, notes: string): Promise<void> {
+  const trimmed = notes.trim();
+  await db
+    .update(routineFolders)
+    .set({
+      notes: trimmed === '' ? null : notes,
+      updatedAt: Date.now(),
+      dirty: true,
+    })
     .where(eq(routineFolders.id, id));
   await recordChange('routine_folders', id, 'update');
 }
@@ -454,6 +474,7 @@ export interface DraftExerciseData {
 
 export interface DraftRoutineData {
   readonly name: string;
+  readonly notes: string | null;
   readonly exercises: readonly DraftExerciseData[];
 }
 
@@ -462,7 +483,10 @@ export async function saveRoutineDraft(
   routineId: string,
   draft: DraftRoutineData,
 ): Promise<void> {
-  await updateRoutineMeta(routineId, { name: draft.name });
+  await updateRoutineMeta(routineId, {
+    name: draft.name,
+    notes: draft.notes !== null && draft.notes.trim() === '' ? null : draft.notes,
+  });
 
   const current = await loadRoutine(routineId);
   if (current === null) return;
@@ -487,13 +511,17 @@ export async function saveRoutineDraft(
       await updateRoutineExercise(routineExerciseId, {
         restSec: de.restSec,
         supersetGroup: de.supersetGroup,
+        notes: de.notes !== null && de.notes.trim() === '' ? null : de.notes,
       });
     } else {
       routineExerciseId = await addExerciseToRoutine(routineId, de.exerciseId, idx, {
         restSec: de.restSec,
         setCount: 0,
       });
-      await updateRoutineExercise(routineExerciseId, { supersetGroup: de.supersetGroup });
+      await updateRoutineExercise(routineExerciseId, {
+        supersetGroup: de.supersetGroup,
+        notes: de.notes !== null && de.notes.trim() === '' ? null : de.notes,
+      });
     }
 
     // Sync sets.
@@ -560,7 +588,10 @@ export async function createRoutineFromWorkout(
       restSec: we.restSec,
       setCount: 0,
     });
-    await updateRoutineExercise(reId, { supersetGroup: we.supersetGroup });
+    await updateRoutineExercise(reId, {
+      supersetGroup: we.supersetGroup,
+      notes: we.notes !== null && we.notes.trim() === '' ? null : we.notes,
+    });
 
     let order = 0;
     for (const s of we.sets) {

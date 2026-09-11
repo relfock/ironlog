@@ -8,14 +8,15 @@ import {
 import { observer } from 'mobx-react-lite';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { SvgXml } from 'react-native-svg';
 import { MuscleMap } from '@/components/MuscleMap';
 import { ActionSheet } from '@/components/ActionSheet';
@@ -62,6 +63,7 @@ function tempKey(): string {
 function draftFromRoutine(r: import('@/db/repositories/routines').RoutineData): DraftRoutineData {
   return {
     name: r.name,
+    notes: r.notes,
     exercises: r.exercises.map((re) => ({
       key: re.id,
       dbId: re.id,
@@ -641,6 +643,29 @@ export const RoutineEditorScreen = observer(function RoutineEditorScreen() {
             {draft.exercises.length} exercise{draft.exercises.length === 1 ? '' : 's'}
           </Caption>
 
+          <Card style={{ marginTop: spacing.md }}>
+            <Caption>HOW TO PERFORM</Caption>
+            <TextInput
+              value={draft.notes ?? ''}
+              onChangeText={(notes) =>
+                setDraft((d) => (d === null ? d : { ...d, notes }))
+              }
+              placeholder="Setup, tempo, form cues — what to remember while doing this routine"
+              placeholderTextColor={palette.textFaint}
+              multiline
+              textAlignVertical="top"
+              accessibilityLabel="How to perform notes"
+              style={[
+                styles.notesInput,
+                {
+                  color: palette.text,
+                  backgroundColor: palette.surfaceRaised,
+                  borderColor: palette.border,
+                },
+              ]}
+            />
+          </Card>
+
           {draft.exercises.length === 0 ? (
             <Card style={{ marginTop: spacing.xl }}>
               <H2>Add your first exercise</H2>
@@ -797,6 +822,7 @@ const RoutineExerciseCard = observer(function RoutineExerciseCard({
   const navigation = useNavigation();
 
   const regions = useMemo(() => exerciseBySlug(de.artKey)?.regions ?? null, [de.artKey]);
+  const [editingNotes, setEditingNotes] = useState(false);
 
   const repsMode: 'single' | 'range' = de.sets.some((s) => s.targetRepsMax !== null)
     ? 'range'
@@ -879,6 +905,30 @@ const RoutineExerciseCard = observer(function RoutineExerciseCard({
 
         {!compact ? (
           <>
+            {de.notes !== null && de.notes.length > 0 || editingNotes ? (
+              <TextInput
+                value={de.notes ?? ''}
+                onChangeText={(notes) => onPatch({ notes })}
+                onEndEditing={() => {
+                  if ((de.notes ?? '').trim() === '') setEditingNotes(false);
+                }}
+                autoFocus={editingNotes}
+                placeholder="Note for this exercise"
+                placeholderTextColor={palette.textFaint}
+                multiline
+                textAlignVertical="top"
+                accessibilityLabel={`${de.exerciseName} note`}
+                style={[
+                  styles.exerciseNotesInput,
+                  {
+                    color: palette.text,
+                    backgroundColor: palette.surfaceRaised,
+                    borderColor: palette.border,
+                  },
+                ]}
+              />
+            ) : null}
+
             {/* Column headers */}
             <Row style={[styles.headerRow, { borderBottomColor: palette.border }]}>
               <View style={styles.badgeSpacer}>
@@ -991,6 +1041,15 @@ const RoutineExerciseCard = observer(function RoutineExerciseCard({
                   },
                 },
                 {
+                  key: 'note',
+                  label:
+                    de.notes !== null && de.notes.length > 0 ? 'Edit note' : 'Add note',
+                  onPress: () => {
+                    onCloseMenu();
+                    setEditingNotes(true);
+                  },
+                },
+                {
                   key: 'replace',
                   label: 'Replace exercise',
                   onPress: () => {
@@ -1065,6 +1124,24 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderStyle: 'dashed',
     alignItems: 'center',
+  },
+  notesInput: {
+    marginTop: spacing.xs,
+    minHeight: 80,
+    borderRadius: radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: fontSize.md,
+  },
+  exerciseNotesInput: {
+    marginTop: spacing.sm,
+    minHeight: 56,
+    borderRadius: radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: fontSize.sm,
   },
   headerRow: {
     flexDirection: 'row',

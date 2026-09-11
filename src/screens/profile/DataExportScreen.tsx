@@ -3,7 +3,8 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { observer } from 'mobx-react-lite';
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { Body, Button, Caption, Card, H1, H2 } from '@/components/ui';
 import {
   BackupFormatError,

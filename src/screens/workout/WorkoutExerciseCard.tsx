@@ -1,7 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { SvgXml } from 'react-native-svg';
 import { MuscleMap } from '@/components/MuscleMap';
 import { ActionSheet } from '@/components/ActionSheet';

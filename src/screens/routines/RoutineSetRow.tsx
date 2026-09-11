@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { DurationField } from '@/components/DurationField';
 import { NumberField } from '@/components/NumberField';
 import { SetTypeBadge } from '@/components/SetTypeBadge';

@@ -1,6 +1,7 @@
 import { observer } from 'mobx-react-lite';
 import React from 'react';
-import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { useNavigation } from '@react-navigation/native';
 import { Caption } from '@/components/ui';
 import {

@@ -1,7 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import React from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Body, Button, Caption, Card, H1, H2, Row } from '@/components/ui';
 import { listExercises } from '@/db/repositories/exercises';

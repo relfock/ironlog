@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useDatabaseMigrations } from '@/db/migrate';
 import { seedExercises } from '@/db/seed';
+import { AlertHost } from '@/lib/alert';
 import { RootNavigator } from '@/navigation/RootNavigator';
 import { StoreProvider, rootStore } from '@/stores/RootStore';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
@@ -103,6 +104,7 @@ export default function App() {
     <GestureHandlerRootView style={styles.flex}>
       <SafeAreaProvider>
         <ThemeProvider>
+          <AlertHost />
           <StoreProvider>
             <Boot />
           </StoreProvider>
@@ -114,5 +116,10 @@ export default function App() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  centre: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
+  centre: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+  },
 });

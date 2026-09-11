@@ -1,0 +1,1 @@
+ALTER TABLE `routine_folders` ADD `notes` text;

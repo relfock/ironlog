@@ -6,7 +6,8 @@ import {
 } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { MuscleMap } from '@/components/MuscleMap';
 import { NumberField } from '@/components/NumberField';
 import { ActionSheet } from '@/components/ActionSheet';

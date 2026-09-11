@@ -82,6 +82,7 @@ export const exercises = sqliteTable(
 export const routineFolders = sqliteTable('routine_folders', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
+  notes: text('notes'),
   sortOrder: integer('sort_order').notNull().default(0),
   ...syncColumns,
 });

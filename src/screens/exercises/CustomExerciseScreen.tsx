@@ -1,7 +1,8 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { FilterChips, type ChipOption } from '@/components/FilterChips';
 import { Body, Button, Caption, Card, H1, H2 } from '@/components/ui';
 import { BodyMap } from '@/components/BodyMap';

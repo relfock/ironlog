@@ -50,6 +50,13 @@
       "when": 1788876000000,
       "tag": "0006_still_summit",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1789107005290,
+      "tag": "0007_ambiguous_darwin",
+      "breakpoints": true
     }
   ]
 }

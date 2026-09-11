@@ -1,6 +1,7 @@
 import { observer } from 'mobx-react-lite';
 import React, { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert } from '@/lib/alert';
 import * as Haptics from 'expo-haptics';
 import { DurationField } from './DurationField';
 import { NumberField } from './NumberField';

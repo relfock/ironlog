@@ -2,7 +2,6 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import { observer } from 'mobx-react-lite';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Linking,
   Pressable,
   ScrollView,
@@ -11,6 +10,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { ExerciseVideo } from '@/components/ExerciseVideo';
 import { MuscleMap } from '@/components/MuscleMap';
 import { SpanSheet } from '@/components/SpanSheet';

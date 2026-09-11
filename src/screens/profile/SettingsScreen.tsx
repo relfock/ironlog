@@ -1,7 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { PromptModal } from '@/components/PromptModal';
 import { Caption } from '@/components/ui';
 import { SegmentedControl, SettingsRow, SettingsSection } from '@/components/settings';

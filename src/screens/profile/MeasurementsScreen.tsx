@@ -1,6 +1,7 @@
 import { observer } from 'mobx-react-lite';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { ActionSheet } from '@/components/ActionSheet';
 import { LineChartCard } from '@/components/charts/LineChartCard';
 import { MeasurementGuideSheet } from '@/components/MeasurementGuideSheet';

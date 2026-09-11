@@ -1,23 +1,43 @@
 import { useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
-import React, { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Body, Button, Caption, Card, H1, H2, Row } from '@/components/ui';
-import { createFolder, createRoutine, deleteFolder, deleteRoutine } from '@/db/repositories/routines';
-import type { RoutineSummary } from '@/db/repositories/routines';
+import {
+  createFolder,
+  createRoutine,
+  deleteFolder,
+  deleteRoutine,
+  updateFolderNotes,
+} from '@/db/repositories/routines';
+import type { FolderData, RoutineSummary } from '@/db/repositories/routines';
 import { useRoutines } from '@/hooks/useRoutines';
 import { useActiveWorkout } from '@/stores/RootStore';
 import { usePalette } from '@/theme/ThemeProvider';
-import { fontSize, spacing } from '@/theme/tokens';
+import { fontSize, radius, spacing } from '@/theme/tokens';
 import { PromptModal } from '@/components/PromptModal';
+
+type RoutinePrompt =
+  | { mode: 'folder' }
+  | { mode: 'routine'; folderId: string | null }
+  | null;
 
 export const RoutinesScreen = observer(function RoutinesScreen() {
   const palette = usePalette();
   const navigation = useNavigation();
   const { routines, folders, reload, loading } = useRoutines();
   const active = useActiveWorkout();
-  const [prompt, setPrompt] = useState<'folder' | 'routine' | null>(null);
+  const [prompt, setPrompt] = useState<RoutinePrompt>(null);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const toggleFolder = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const unfiled = useMemo(
     () => routines.filter((r) => r.folderId === null),
@@ -50,13 +70,13 @@ export const RoutinesScreen = observer(function RoutinesScreen() {
         <Row style={{ marginTop: spacing.md }} gap={spacing.sm}>
           <Button
             label="New routine"
-            onPress={() => setPrompt('routine')}
+            onPress={() => setPrompt({ mode: 'routine', folderId: null })}
             style={{ flex: 1 }}
           />
           <Button
             label="New folder"
             variant="secondary"
-            onPress={() => setPrompt('folder')}
+            onPress={() => setPrompt({ mode: 'folder' })}
             style={{ flex: 1 }}
           />
         </Row>
@@ -76,35 +96,72 @@ export const RoutinesScreen = observer(function RoutinesScreen() {
 
         {folders.map((folder) => {
           const inFolder = routines.filter((r) => r.folderId === folder.id);
+          const isExpanded = expanded.has(folder.id);
           return (
             <View key={folder.id} style={{ marginTop: spacing.xl }}>
               <Row style={{ justifyContent: 'space-between' }}>
-                <H2>{folder.name}</H2>
-                <Text
-                  onPress={() =>
-                    Alert.alert(folder.name, undefined, [
-                      {
-                        text: 'Delete folder',
-                        style: 'destructive',
-                        onPress: () => void deleteFolder(folder.id).then(reload),
-                      },
-                      { text: 'Cancel', style: 'cancel' },
-                    ])
-                  }
+                <Pressable
+                  onPress={() => toggleFolder(folder.id)}
                   accessibilityRole="button"
-                  accessibilityLabel={`${folder.name} options`}
-                  style={{ color: palette.textMuted, fontSize: fontSize.xl }}
+                  accessibilityLabel={`${isExpanded ? 'Collapse' : 'Expand'} ${folder.name}`}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
                 >
-                  ⋯
-                </Text>
+                  <Text
+                    style={{
+                      color: palette.textMuted,
+                      fontSize: fontSize.sm,
+                      width: 18,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {isExpanded ? '▾' : '▸'}
+                  </Text>
+                  <H2 style={{ flex: 1 }}>{folder.name}</H2>
+                </Pressable>
+                <Row gap={spacing.lg}>
+                  <Text
+                    onPress={() => setPrompt({ mode: 'routine', folderId: folder.id })}
+                    accessibilityRole="button"
+                    accessibilityLabel={`New routine in ${folder.name}`}
+                    style={{ color: palette.accent, fontSize: fontSize.xl, lineHeight: fontSize.xl }}
+                  >
+                    ＋
+                  </Text>
+                  <Text
+                    onPress={() =>
+                      Alert.alert(folder.name, undefined, [
+                        {
+                          text: 'New routine in this folder',
+                          onPress: () => setPrompt({ mode: 'routine', folderId: folder.id }),
+                        },
+                        {
+                          text: 'Delete folder',
+                          style: 'destructive',
+                          onPress: () => void deleteFolder(folder.id).then(reload),
+                        },
+                        { text: 'Cancel', style: 'cancel' },
+                      ])
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={`${folder.name} options`}
+                    style={{ color: palette.textMuted, fontSize: fontSize.xl }}
+                  >
+                    ⋯
+                  </Text>
+                </Row>
               </Row>
-              {inFolder.length === 0 ? (
-                <Caption style={{ marginTop: spacing.xs }}>Empty folder</Caption>
-              ) : (
-                inFolder.map((r) => (
-                  <RoutineCard key={r.id} routine={r} onStart={start} onChanged={reload} />
-                ))
-              )}
+              {isExpanded ? (
+                <>
+                  <FolderNotesField folder={folder} onSaved={reload} />
+                  {inFolder.length === 0 ? (
+                    <Caption style={{ marginTop: spacing.xs }}>Empty folder</Caption>
+                  ) : (
+                    inFolder.map((r) => (
+                      <RoutineCard key={r.id} routine={r} onStart={start} onChanged={reload} />
+                    ))
+                  )}
+                </>
+              ) : null}
             </View>
           );
         })}
@@ -121,17 +178,19 @@ export const RoutinesScreen = observer(function RoutinesScreen() {
 
       <PromptModal
         visible={prompt !== null}
-        title={prompt === 'folder' ? 'New folder' : 'New routine'}
-        placeholder={prompt === 'folder' ? 'e.g. Push / Pull / Legs' : 'e.g. Upper A'}
+        title={prompt?.mode === 'folder' ? 'New folder' : 'New routine'}
+        placeholder={
+          prompt?.mode === 'folder' ? 'e.g. Push / Pull / Legs' : 'e.g. Upper A'
+        }
         onCancel={() => setPrompt(null)}
         onSubmit={(name) => {
-          const mode = prompt;
+          const target = prompt;
           setPrompt(null);
-          if (name.trim().length === 0 || mode === null) return;
-          if (mode === 'folder') {
+          if (name.trim().length === 0 || target === null) return;
+          if (target.mode === 'folder') {
             void createFolder(name).then(reload);
           } else {
-            void createRoutine(name).then((id) => {
+            void createRoutine(name, target.folderId).then((id) => {
               reload();
               navigation.navigate('RoutineEditor', { routineId: id });
             });
@@ -212,6 +271,58 @@ const RoutineCard = observer(function RoutineCard({
   );
 });
 
+function FolderNotesField({
+  folder,
+  onSaved,
+}: {
+  folder: FolderData;
+  onSaved: () => void;
+}) {
+  const palette = usePalette();
+  const [value, setValue] = useState(folder.notes ?? '');
+
+  useEffect(() => {
+    setValue(folder.notes ?? '');
+  }, [folder.notes]);
+
+  return (
+    <Card style={{ marginTop: spacing.sm }}>
+      <Caption>NOTES</Caption>
+      <TextInput
+        value={value}
+        onChangeText={setValue}
+        onBlur={() => {
+          if (value.trim() !== (folder.notes ?? '').trim()) {
+            void updateFolderNotes(folder.id, value).then(onSaved);
+          }
+        }}
+        placeholder="What these routines share — the focus, style, or progress note for the folder"
+        placeholderTextColor={palette.textFaint}
+        multiline
+        textAlignVertical="top"
+        accessibilityLabel={`${folder.name} notes`}
+        style={[
+          styles.notesInput,
+          {
+            color: palette.text,
+            backgroundColor: palette.surfaceRaised,
+            borderColor: palette.border,
+          },
+        ]}
+      />
+    </Card>
+  );
+}
+
 const styles = StyleSheet.create({
   scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  notesInput: {
+    marginTop: spacing.xs,
+    minHeight: 80,
+    borderRadius: radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: fontSize.md,
+  },
 });
