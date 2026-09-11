@@ -1,7 +1,28 @@
 import {
+  isPlausibleBpm,
   parseHeartRateMeasurement,
   summariseHeartRate,
 } from './heartRate';
+
+describe('isPlausibleBpm', () => {
+  it('accepts a normal resting-and-max range', () => {
+    expect(isPlausibleBpm(40)).toBe(true);
+    expect(isPlausibleBpm(120)).toBe(true);
+    expect(isPlausibleBpm(220)).toBe(true);
+  });
+
+  it('rejects absurd strap readings', () => {
+    expect(isPlausibleBpm(25376)).toBe(false);
+    expect(isPlausibleBpm(29810)).toBe(false);
+    expect(isPlausibleBpm(0)).toBe(false);
+    expect(isPlausibleBpm(-5)).toBe(false);
+  });
+
+  it('rejects non-finite values', () => {
+    expect(isPlausibleBpm(NaN)).toBe(false);
+    expect(isPlausibleBpm(Infinity)).toBe(false);
+  });
+});
 
 describe('parseHeartRateMeasurement', () => {
   it('throws on an empty payload', () => {

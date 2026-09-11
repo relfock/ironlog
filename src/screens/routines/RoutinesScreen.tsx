@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Alert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -62,7 +62,10 @@ export const RoutinesScreen = observer(function RoutinesScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: palette.bg }} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+      >
         <Row style={{ justifyContent: 'space-between' }}>
           <H1>Routines</H1>
         </Row>
@@ -280,22 +283,41 @@ function FolderNotesField({
 }) {
   const palette = usePalette();
   const [value, setValue] = useState(folder.notes ?? '');
+  const [editing, setEditing] = useState(false);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const savedRef = useRef(folder.notes ?? '');
+
+  const persist = () => {
+    const typed = valueRef.current.trim();
+    if (typed !== savedRef.current.trim()) {
+      savedRef.current = typed;
+      void updateFolderNotes(folder.id, valueRef.current).then(onSaved);
+    }
+  };
 
   useEffect(() => {
-    setValue(folder.notes ?? '');
-  }, [folder.notes]);
+    if (!editing) {
+      const dbNotes = folder.notes ?? '';
+      savedRef.current = dbNotes;
+      setValue(dbNotes);
+    }
+  }, [folder.notes, editing]);
+
+  // Persist in-flight edits if the component is unmounted (e.g. folder collapsed).
+  useEffect(() => () => persist(), []);
 
   return (
     <Card style={{ marginTop: spacing.sm }}>
       <Caption>NOTES</Caption>
       <TextInput
         value={value}
-        onChangeText={setValue}
-        onBlur={() => {
-          if (value.trim() !== (folder.notes ?? '').trim()) {
-            void updateFolderNotes(folder.id, value).then(onSaved);
-          }
+        onChangeText={(t) => {
+          valueRef.current = t;
+          setValue(t);
         }}
+        onFocus={() => setEditing(true)}
+        onBlur={() => { setEditing(false); persist(); }}
         placeholder="What these routines share — the focus, style, or progress note for the folder"
         placeholderTextColor={palette.textFaint}
         multiline

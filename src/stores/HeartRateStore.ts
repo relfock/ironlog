@@ -13,7 +13,7 @@
  */
 import { makeAutoObservable, runInAction } from 'mobx';
 import { Platform } from 'react-native';
-import { parseHeartRateMeasurement } from '@/domain/heartRate';
+import { isPlausibleBpm, parseHeartRateMeasurement } from '@/domain/heartRate';
 import { onWorkoutTick } from '@/lib/keepAlive';
 import { requestBlePermissions } from '@/lib/blePermissions';
 import type { SettingsStore } from './SettingsStore';
@@ -564,6 +564,11 @@ export class HeartRateStore {
       bpm = null;
     }
     if (bpm === null) return;
+
+    // Straps occasionally broadcast garbage (a 25376 bpm reading was enough to
+    // wreck a run's averages and calories). Drop implausible readings at the
+    // door: keep the last good value so the rest of the pipeline stays clean.
+    if (!isPlausibleBpm(bpm)) return;
 
     this.latestBpm = bpm;
     runInAction(() => {

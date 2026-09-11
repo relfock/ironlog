@@ -48,6 +48,7 @@ import { setVolumeKg, totalVolumeKg } from '@/domain/volume';
 import type { LoggedSet, SetType } from '@/domain/types';
 import { setTypeCountsForStats } from '@/domain/types';
 import { estimateMaxHr, zoneIndexForHr, zoneSplitSeconds } from '@/domain/heartRateZones';
+import { isPlausibleBpm } from '@/domain/heartRate';
 import {
   runningCaloriesKcal,
   sessionCaloriesFromHr,
@@ -1100,7 +1101,7 @@ export class ActiveWorkoutStore {
     const bpm = this.heartRate.liveBpm;
     const at = Date.now();
 
-    if (bpm !== null && bpm > 0) {
+    if (bpm !== null && bpm > 0 && isPlausibleBpm(bpm)) {
       run.samples = [...run.samples, { recordedAt: at, bpm }];
       run.avgSum += bpm;
       run.avgCount += 1;
@@ -1111,7 +1112,7 @@ export class ActiveWorkoutStore {
     // wholesale at Finish — full resolution for the post-workout HR chart.
     const maxHr = this.cardioMaxHr;
     const idx =
-      bpm !== null && bpm > 0 && maxHr !== null
+      bpm !== null && bpm > 0 && isPlausibleBpm(bpm) && maxHr !== null
         ? zoneIndexForHr(bpm, maxHr, this.settings.zoneSet)
         : null;
     if (idx !== run.zoneCurrent) {

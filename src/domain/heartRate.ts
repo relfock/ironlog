@@ -35,6 +35,24 @@ const FLAG_RR_INTERVALS = 0x10;
 /** 1/1024 of a second (the RR interval unit) in milliseconds. */
 const RR_UNIT_MS = 1000 / 1024;
 
+/**
+ * Hard bounds for a human heart rate. Straps occasionally broadcast bytes we
+ * cannot trust (a malformed uint16, a stuck sensor, a lost connection), and a
+ * single 25376 bpm reading was enough to inflate a run's average, calories and
+ * max by corrupting every downstream statistic. Values outside these bounds are
+ * treated as noise and dropped at ingestion, never averaged.
+ */
+export const MIN_PLAUSIBLE_BPM = 20;
+export const MAX_PLAUSIBLE_BPM = 230;
+
+export function isPlausibleBpm(bpm: number): boolean {
+  return (
+    Number.isFinite(bpm) &&
+    bpm >= MIN_PLAUSIBLE_BPM &&
+    bpm <= MAX_PLAUSIBLE_BPM
+  );
+}
+
 function byteAt(bytes: number[], i: number): number {
   const v = bytes[i];
   if (v === undefined) {
