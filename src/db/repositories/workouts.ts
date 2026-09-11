@@ -100,7 +100,11 @@ function toLoggedSet(s: WorkoutSetData): LoggedSet {
  * re-reads this on resume, so it has to be cheap even for a 40-set session.
  */
 export async function loadWorkout(workoutId: string): Promise<WorkoutData | null> {
-  const wRows = await db.select().from(workouts).where(eq(workouts.id, workoutId)).limit(1);
+  const wRows = await db
+    .select()
+    .from(workouts)
+    .where(eq(workouts.id, workoutId))
+    .limit(1);
   const w = wRows[0];
   if (w === undefined) return null;
 
@@ -214,7 +218,10 @@ export async function findInProgressWorkout(): Promise<WorkoutData | null> {
   return id === undefined ? null : loadWorkout(id);
 }
 
-export async function listCompletedWorkouts(limit = 50, offset = 0): Promise<WorkoutRow[]> {
+export async function listCompletedWorkouts(
+  limit = 50,
+  offset = 0,
+): Promise<WorkoutRow[]> {
   return db
     .select()
     .from(workouts)
@@ -353,7 +360,11 @@ export async function startWorkoutFromRoutine(
   routineId: string,
   bodyweightKg: number | null,
 ): Promise<string> {
-  const rRows = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
+  const rRows = await db
+    .select()
+    .from(routines)
+    .where(eq(routines.id, routineId))
+    .limit(1);
   const routine = rRows[0];
   const now = Date.now();
   const workoutId = newId();
@@ -509,7 +520,7 @@ export async function updateSet(
       ...(patch.weightKg !== undefined ? { weightKg: patch.weightKg } : {}),
       ...(patch.reps !== undefined ? { reps: patch.reps } : {}),
       ...(patch.durationSec !== undefined ? { durationSec: patch.durationSec } : {}),
-      ... (patch.distanceM !== undefined ? { distanceM: patch.distanceM } : {}),
+      ...(patch.distanceM !== undefined ? { distanceM: patch.distanceM } : {}),
       ...(patch.avgBpm !== undefined ? { avgBpm: patch.avgBpm } : {}),
       ...(patch.caloriesKcal !== undefined ? { caloriesKcal: patch.caloriesKcal } : {}),
       ...(patch.zone0Sec !== undefined ? { zone0Sec: patch.zone0Sec } : {}),
@@ -566,7 +577,11 @@ export async function removeWorkoutExercise(weId: string): Promise<void> {
 
 export async function updateWorkoutExercise(
   weId: string,
-  patch: { restSec?: number | null; notes?: string | null; supersetGroup?: number | null },
+  patch: {
+    restSec?: number | null;
+    notes?: string | null;
+    supersetGroup?: number | null;
+  },
 ): Promise<void> {
   await db
     .update(workoutExercises)
@@ -742,11 +757,19 @@ export async function finishWorkout(
 
 /** Throw away an in-progress workout entirely. */
 export async function discardWorkout(workoutId: string): Promise<void> {
-  await db
-    .update(workouts)
-    .set({ deleted: true, updatedAt: Date.now(), dirty: true })
-    .where(eq(workouts.id, workoutId));
-  await recordChange('workouts', workoutId, 'delete');
+  await deleteWorkouts([workoutId]);
+}
+
+/** Tombstone multiple workouts at once — powers bulk delete in History. */
+export async function deleteWorkouts(workoutIds: readonly string[]): Promise<void> {
+  const now = Date.now();
+  for (const id of workoutIds) {
+    await db
+      .update(workouts)
+      .set({ deleted: true, updatedAt: now, dirty: true })
+      .where(eq(workouts.id, id));
+    await recordChange('workouts', id, 'delete');
+  }
 }
 
 /**
